@@ -46,7 +46,7 @@ void keyboard::keyboard_irq_handler(u8 irq, void *ctx, void *arg)
 void keyboard::handle_key_event(u8 key_event_data)
 {
 	if (listener_) {
-		u8 scancode = key_event_data & ~0x80;
+		u8 scancode = key_event_data ;
 
 		switch (kes_) {
 		case key_event_state::normal: {
@@ -63,10 +63,20 @@ void keyboard::handle_key_event(u8 key_event_data)
 				listener_->on_key_down(key);
 			}
 		} break;
-
-		case key_event_state::e0:
+		case key_event_state::e0:{
 			kes_ = key_event_state::normal;
-			break;
+			keys key;
+			if (scancode == 0x48) key = keys::KEY_UP;
+			if (scancode == 0x4B) key = keys::KEY_LEFT;
+			if (scancode == 0x50) key = keys::KEY_DOWN;
+			if (scancode == 0x4D) key = keys::KEY_RIGHT;
+
+			if (key_event_data & 0x80) {
+				listener_->on_key_up(key);
+			} else {
+				listener_->on_key_down(key);
+			}
+		} break;
 
 		case key_event_state::e1:
 			kes_ = key_event_state::normal;

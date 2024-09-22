@@ -113,5 +113,11 @@ enum class keys {
 	KEY_RALT,
 	KEY_LWIN,
 	KEY_RWIN,
+
+	KEY_UP,
+	KEY_DOWN,
+	KEY_LEFT,
+	KEY_RIGHT,
+
 };
 }

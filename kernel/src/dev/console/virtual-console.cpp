@@ -150,6 +150,12 @@ void virtual_console::on_key_down(keys key)
 		KEY_MAPPING(KEY_COMMA, '<', ',');
 		KEY_MAPPING(KEY_SEMICOLON, ':', ';');
 
+
+		KEY_MAPPING(KEY_LEFT, 0x80, 0x80);
+		KEY_MAPPING(KEY_RIGHT, 0x81, 0x81);
+		KEY_MAPPING(KEY_UP, 0x82, 0x82);
+		KEY_MAPPING(KEY_DOWN, 0x83, 0x83);
+
 	case keys::KEY_SPACE:
 		ch = ' ';
 		break;
