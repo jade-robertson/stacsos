@@ -54,6 +54,9 @@ static void init_console()
 	auto vc1 = new virtual_console(dm.sysbus(), virtual_console_mode::text);
 	dm.register_device(*vc1);
 
+	auto vc2 = new virtual_console(dm.sysbus(), virtual_console_mode::gfx);
+	dm.register_device(*vc2);
+
 	auto tty1 = new terminal(dm.sysbus());
 	tty1->attach(*vc1);
 	dm.register_device(*tty1);
@@ -65,6 +68,7 @@ static void init_console()
 
 	phys_console->add_virtual_console(*vc0);
 	phys_console->add_virtual_console(*vc1);
+	phys_console->add_virtual_console(*vc2);
 
 	// abort();
 }
