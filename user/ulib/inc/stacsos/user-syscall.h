@@ -58,6 +58,18 @@ public:
 		return rw_result { r.code, r.data };
 	}
 
+	static rw_result pread(u64 object, void *buffer, u64 length, size_t offset)
+	{
+		auto r = syscall4(syscall_numbers::pread, object, (u64)buffer, length, offset);
+		return rw_result { r.code, r.data };
+	}
+
+	static rw_result ioctl(u64 object, u64 cmd, void *buffer, u64 length)
+	{
+		auto r = syscall4(syscall_numbers::ioctl, object, cmd, (u64)buffer, length);
+		return rw_result { r.code, r.data };
+	}
+
 	static alloc_result alloc_mem(u64 size)
 	{
 		auto r = syscall1(syscall_numbers::alloc_mem, size);

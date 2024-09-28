@@ -30,8 +30,10 @@ public:
 	u64 id() const { return id_; }
 
 	virtual operation_result read(void *buffer, size_t length) { return operation_result::not_supported(); }
+	virtual operation_result pread(void *buffer, size_t length, size_t offset) { return operation_result::not_supported(); }
 	virtual operation_result write(const void *buffer, size_t length) { return operation_result::not_supported(); }
 	virtual operation_result pwrite(const void *buffer, size_t length, size_t offset) { return operation_result::not_supported(); }
+	virtual operation_result ioctl(u64 cmd, void *buffer, size_t length) { return operation_result::not_supported(); }
 	virtual operation_result wait_for_status_change() { return operation_result::not_supported(); }
 	virtual operation_result join() { return operation_result::not_supported(); }
 
@@ -54,8 +56,10 @@ public:
 	}
 
 	virtual operation_result read(void *buffer, size_t length) { return operation_result::ok(file_->read(buffer, length)); }
+	virtual operation_result pread(void *buffer, size_t length, size_t offset) { return operation_result::ok(file_->pread(buffer, offset, length)); }
 	virtual operation_result write(const void *buffer, size_t length) { return operation_result::ok(file_->write(buffer, length)); }
 	virtual operation_result pwrite(const void *buffer, size_t length, size_t offset) { return operation_result::ok(file_->pwrite(buffer, offset, length)); }
+	virtual operation_result ioctl(u64 cmd, void *buffer, size_t length) { return operation_result::ok(file_->ioctl(cmd, buffer, length)); }
 
 private:
 	shared_ptr<fs::file> file_;
