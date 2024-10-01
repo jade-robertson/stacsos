@@ -26,11 +26,11 @@ using namespace stacsos;
 // struct mat{
 
 // }
-struct vec3 {
-	double x, y, z;
+// struct Vec3 {
+// 	double x, y, z;
 
 
-};
+// };
 struct vec2i {
 	int x, y;
 	vec2i operator+(const vec2i &a) const { return vec2i(a.x + x, a.y + y); }
@@ -38,39 +38,23 @@ struct vec2i {
 	vec2i operator*(const double &a) const { return vec2i(a * x, a * y); }
 };
 
-struct object{
-	list<triangle> tris;
-	mat
-}
+
 
 struct triangle {
-	vec3 p1;
-	vec3 p2;
-	vec3 p3;
+	Vec3 points[3];
+	// Vec3 p1;
+	// Vec3 p2;
+	// Vec3 p3;
 };
-
+struct object3d{
+	list<triangle> tris;
+	Transform trans;
+};
 struct colour {
 	u8 r;
 	u8 g;
 	u8 b;
 };
-
-// template <int r2, int d, int c2>
-// // template <int d>
-// Matrix< r2,  d> operator+(Matrix< d, c2>& a){
-// 	Matrix<r2,c2> res;
-
-// 	return res;
-// }
-
-// template <u8 r, u8 c> class	Matrix< r,  c>& operator+(Matrix< u8 s,u8 d>& a){
-// 		return a;
-// 	}
-
-// template < r,  c> ;
-// Matrix<int r, int c>& operator+(Matrix<int r, int c>& a){
-// 		return a;
-// 	}
 
 // typedef Matrix<4,4> mat4x4;
 const colour WHITE = colour(255, 255, 255);
@@ -82,7 +66,8 @@ const int WIDTH = 640; // frame is 80x25
 const int HEIGHT = 480;
 u32 frame_buffer[HEIGHT][WIDTH];
 list<triangle> tris;
-
+list<object3d> objects;
+object3d obj1;
 object *fb;
 
 
@@ -99,7 +84,7 @@ static void set_pixel(u16 x, u16 y, colour c)
 }
 
 // screen uvs vary from -1 to 1
-static vec2i screen_uv_to_pixel(vec3 in) { return vec2i(((in.x + 1.0) / 2) * WIDTH, ((in.y + 1.0) / 2) * HEIGHT); }
+static vec2i screen_uv_to_pixel(Vec3 in) { return vec2i(int(((in.x() + 1.0) / 2) * WIDTH), int(((in.y() + 1.0) / 2) * HEIGHT)); }
 
 static void line(vec2i start, vec2i end, colour c)
 {
@@ -146,19 +131,26 @@ static void render(int frame)
 			// drawchar(x, y , (u8)x, (u8)y, (u8)(frame %100),'c');
 		}
 	}
-	for (auto &t : tris) {
-
-		vec3 camera_point= vec3(0.0,0.0,0.0);
-		vec3 camera_look_point= vec3(0.0,0.0,1.0);
-		//triangle position matrix
-		d64 t1[4] ={t.p1.x,t.p1.y,t.p1.z,1.0};
-		Matrix<4,1> tri_p =Matrix<4,1> (t1);
-		//Viewport*Proj*View*Model *t
-		// console::get().writef("%d",t.p1.x);
-		draw_triangle(screen_uv_to_pixel(t.p1), screen_uv_to_pixel(t.p2), screen_uv_to_pixel(t.p3), colour(t.p3.x * 256, t.p3.y * 256, (frame % 25600) / 100));
-		// line(screen_uv_to_pixel(t.p1),screen_uv_to_pixel(t.p2),RED);
-		// line(screen_uv_to_pixel(t.p2),screen_uv_to_pixel(t.p3),GREEN);
-		// line(screen_uv_to_pixel(t.p3),screen_uv_to_pixel(t.p1),BLUE);
+	for (auto &o : objects) {
+		Transform tr= o.trans;
+		// tr.print();
+		for (auto &t : o.tris) {
+			Vec4 p0 = Vec4(t.points[0],1.0);
+			Vec4 p1 =( p0) *(tr);
+			// Vec3 p2
+			// Vec3 p3
+			Vec3 camera_point= Vec3(0.0,0.0,0.0);
+			Vec3 camera_look_point= Vec3(0.0,0.0,1.0);
+			//triangle position matrix
+			// d64 t1[4] ={(t.p1.x()),(t.p1.y()),(t.p1.z()),1.0};
+			// Matrix<4,1> tri_p =Matrix<4,1> (t1);
+			//Viewport*Proj*View*Model *t
+			// console::get().writef("%d",t.p1.x);
+			draw_triangle(screen_uv_to_pixel(p1.toVec3()), screen_uv_to_pixel(t.points[1]), screen_uv_to_pixel(t.points[2]), colour(u8(t.points[2].x() * 256), u8(t.points[2].y() * 256), (frame % 25600) / 100));
+			// line(screen_uv_to_pixel(t.p1),screen_uv_to_pixel(t.p2),RED);
+			// line(screen_uv_to_pixel(t.p2),screen_uv_to_pixel(t.p3),GREEN);
+			// line(screen_uv_to_pixel(t.p3),screen_uv_to_pixel(t.p1),BLUE);
+		}
 	}
 	// syscalls::sleep(10);
 	send();
@@ -203,20 +195,26 @@ int main(const char *cmdline)
 	// 	threads[k]->join();
 	// }
 
-	// tris.append(triangle(vec3(.1,0.0,-0.1), vec3(0.9,0.9,0.0),vec3((frame%1000)/1000.0,0.0,0.0)));
-	// tris.append(triangle(vec3(-0.3,0.0,0.1), vec3(0.8,-0.8,0.0),vec3(1.0,0.5,0.0)));
-	// tris.append(triangle(vec3(-0.2,0.0,0.0), vec3(-0.5,1.0,0.0),vec3(1.0,-0.2,0.0)));
+	// tris.append(triangle(Vec3(.1,0.0,-0.1), Vec3(0.9,0.9,0.0),Vec3((frame%1000)/1000.0,0.0,0.0)));
+	// tris.append(triangle(Vec3(-0.3,0.0,0.1), Vec3(0.8,-0.8,0.0),Vec3(1.0,0.5,0.0)));
+	// tris.append(triangle(Vec3(-0.2,0.0,0.0), Vec3(-0.5,1.0,0.0),Vec3(1.0,-0.2,0.0)));
 
-	tris.append(triangle(vec3(0.0, 0.0, 0.0), vec3(0, 0.3, 0.0), vec3(0.3, 0.15, 0.0)));
-	tris.append(triangle(vec3(0.0, 0.0, 0.0), vec3(0, 0.3, 0.0), vec3(-0.3, 0.15, 0.0)));
+	obj1.tris.append(triangle({Vec3(0.0, 0.0, 0.0), Vec3(0, 0.3, 0.0), Vec3(0.3, 0.15, 0.0)}));
+	obj1.tris.append(triangle({Vec3(0.0, 0.0, 0.0), Vec3(0, 0.3, 0.0), Vec3(-0.3, 0.15, 0.0)}));
 
-	tris.append(triangle(vec3(0.0, 0.0, 0.0), vec3(0.3, -0.15, 0.0), vec3(0.0, -0.3, 0.0)));
-	tris.append(triangle(vec3(0.0, 0.0, 0.0), vec3(0.3, -0.15, 0.0), vec3(0.3, 0.15, 0.0)));
+	obj1.tris.append(triangle({Vec3(0.0, 0.0, 0.0), Vec3(0.3, -0.15, 0.0), Vec3(0.0, -0.3, 0.0)}));
+	obj1.tris.append(triangle({Vec3(0.0, 0.0, 0.0), Vec3(0.3, -0.15, 0.0), Vec3(0.3, 0.15, 0.0)}));
 
-	tris.append(triangle(vec3(0.0, 0.0, 0.0), vec3(-0.3, -0.15, 0.0), vec3(0.0, -0.3, 0.0)));
-	tris.append(triangle(vec3(0.0, 0.0, 0.0), vec3(-0.3, -0.15, 0.0), vec3(-0.3, 0.15, 0.0)));
+	obj1.tris.append(triangle({Vec3(0.0, 0.0, 0.0), Vec3(-0.3, -0.15, 0.0), Vec3(0.0, -0.3, 0.0)}));
+	obj1.tris.append(triangle({Vec3(0.0, 0.0, 0.0), Vec3(-0.3, -0.15, 0.0), Vec3(-0.3, 0.15, 0.0)}));
+	obj1.trans = Transform();
+	obj1.trans.translate(Vec3(0.1,0.00000001,0.00000001));
+
+	objects.append(obj1);
 	int frame = 0;
 	while (true) {
+		// obj1.trans.translate(Vec3(sin((frame % 25600) / 100),d64(0.01),d64(0.01)));
+		
 		render(frame);
 		// if (frame%25600==0){
 		// 	console::get().writef("0: %ld\n ", (s64)(d64(72.0) * d64(2)));

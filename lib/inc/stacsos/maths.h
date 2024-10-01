@@ -7,17 +7,10 @@
 namespace stacsos {
 
 #define PI 3.1415
-typedef union double_gp_ {
-	double val;
-	char ignore;
-} double_gp;
 
-typedef Matrix<4, 4> mat4;
-typedef Matrix<4, 4> mat4;
+// typedef Matrix<4, 4> mat4;
+// typedef Matrix<4, 4> mat4;
 
-class vec3 : public Matrix<1, 3> {
-
-}
 
 // Used chathpt for this, idk how well it works
 class d64 {
@@ -54,6 +47,8 @@ public:
 
 	// Conversion operator to double
 	operator int() const { return (int)d; }
+	operator u8() const { return (u8)d; }
+	operator s64() const { return (s64)d; }
 
 	// Assignment operator from double
 	d64 &operator=(double value)
@@ -84,6 +79,7 @@ public:
 
 	// Addition from float
 	d64 operator+(float value) const { return d64(d + static_cast<double>(value)); }
+	d64 operator+(double value) const { return d64(d + static_cast<double>(value)); }
 
 	// Subtraction
 	d64 operator-(const d64 &other) const { return d64(d - other.d); }
@@ -134,7 +130,7 @@ public:
 		};
 		// console::get().writef()
 	};
-	void set(u8 ri, u8 ci, u64 v) { data[ci + ri * c] = v; };
+	void set(u8 ri, u8 ci, d64 v) { data[ci + ri * c] = v; };
 	d64 get_at(u8 ri, u8 ci) { return data[ci + ri * c]; };
 };
 
@@ -146,7 +142,7 @@ template <u8 r, u8 c> Matrix<r, c>::Matrix(d64 d[r * c])
 }
 template <u8 r, u8 c> Matrix<r, c>::Matrix() { 
     for (u8 i=0; i< min(r,c );i++){
-        set(i,1,1.0);
+        set(i,i,1.0);
     } 
 }
 
@@ -182,6 +178,105 @@ template <u8 r, u8 c> Matrix<r, c> Matrix<r, c>::operator+(Matrix<r, c> &a)
 
 	return res;
 }
+// class Vec4 : public Matrix<1, 4>{};
+class Vec3 : public Matrix<1, 3> {
+    public:
+    Vec3(d64 x, d64 y, d64 z){
+        data[0]= x;
+        data[1]= y;
+        data[2]= z;
+    };
+    Vec3(double x, double y, double z){
+        data[0]= x;
+        data[1]= y;
+        data[2]= z;
+    };
+
+
+    d64 x() const{
+        return data[0];
+    };
+    d64 y() const{
+        return data[1];
+    };
+    d64 z() const{
+        return data[2];
+    };
+
+};
+class Vec4 : public Matrix<1, 4> {
+    public:
+    Vec4(d64 x, d64 y, d64 z, d64 w){
+        data[0]= x;
+        data[1]= y;
+        data[2]= z;
+        data[3]= w;
+    };
+    Vec4(double x, double y, double z, double w){
+        data[0]= x;
+        data[1]= y;
+        data[2]= z;
+        data[3]= w;
+    };
+    Vec4(Vec3 v, d64 w){
+        data[0]= v.x();
+        data[1]= v.y();
+        data[2]= v.z();
+        data[3]= w;
+    };
+    Vec4(Matrix<1,4> m ){
+        data[0]= m.data[0];
+        data[1]= m.data[1];
+        data[2]= m.data[2];
+        data[3]= m.data[3];
+
+    };
+    d64 x() const{
+        return data[0];
+    };
+    d64 y() const{
+        return data[1];
+    };
+    d64 z() const{
+        return data[2];
+    };
+    d64 w() const{
+        return data[3];
+    };
+
+    Vec3 toVec3(){
+        return Vec3(data[0],data[1],data[2]);
+    }
+
+};
+
+//4 by 4 matrix, where the
+class Transform : public Matrix<4, 4> {
+    public:
+
+    void translate(Vec3 p) {
+        set(0,3, p.x());
+        set(1,3, get_at(1,3) + p.y());
+        set(2,3, get_at(2,3) + p.z());
+    };
+    void scale() const{
+        // return data[1];
+    };
+    //Vector p represents n radian rotation around axis, applied  
+    void rotate_x(d64 theta) const{
+        // return data[2];
+    };
+
+        //Vector p represents n radian rotation around axis, applied  
+    void rotate_y(d64 theta) const{
+        // return data[2];
+    };
+
+        //Vector p represents n radian rotation around axis, applied  
+    void rotate_z(d64 theta) const{
+        // return data[2];
+    };
+};
 
 d64 pow(double n, int p)
 {
@@ -205,7 +300,7 @@ d64 sin(double angle)
 		return sin(angle + 2 * PI);
 	}
 	// d64 rt = (d64) (d64(angle) - ((pow(angle,3))/d64(6.0)) );
-	return (angle) - (pow(angle, 3) / d64(6.0)) + (pow(angle, 5) / d64(120.0)) - (pow(angle, 7) / d64(5040.0)) + (pow(angle, 9) / d64(362880.0));
+	return d64(d64(angle) - (pow(angle, 3) / d64(6.0))) + (pow(angle, 5) / d64(120.0)) - (pow(angle, 7) / d64(5040.0)) + (pow(angle, 9) / d64(362880.0));
 	// + angle^5/ 120 -angle^7/5040 + angle^9 /362880);
 };
 
