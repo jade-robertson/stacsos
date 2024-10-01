@@ -28,6 +28,8 @@ using namespace stacsos;
 // }
 struct vec3 {
 	double x, y, z;
+
+
 };
 struct vec2i {
 	int x, y;
@@ -35,6 +37,11 @@ struct vec2i {
 	vec2i operator-(const vec2i &a) const { return vec2i(x - a.x, y - a.y); }
 	vec2i operator*(const double &a) const { return vec2i(a * x, a * y); }
 };
+
+struct object{
+	list<triangle> tris;
+	mat
+}
 
 struct triangle {
 	vec3 p1;
@@ -78,9 +85,7 @@ list<triangle> tris;
 
 object *fb;
 
-u32 t(float a){
-	return a*2.0;
-}
+
 static void send()
 {
 	// u32 u = (r<< 16) |(g << 8) | b;
@@ -142,6 +147,13 @@ static void render(int frame)
 		}
 	}
 	for (auto &t : tris) {
+
+		vec3 camera_point= vec3(0.0,0.0,0.0);
+		vec3 camera_look_point= vec3(0.0,0.0,1.0);
+		//triangle position matrix
+		d64 t1[4] ={t.p1.x,t.p1.y,t.p1.z,1.0};
+		Matrix<4,1> tri_p =Matrix<4,1> (t1);
+		//Viewport*Proj*View*Model *t
 		// console::get().writef("%d",t.p1.x);
 		draw_triangle(screen_uv_to_pixel(t.p1), screen_uv_to_pixel(t.p2), screen_uv_to_pixel(t.p3), colour(t.p3.x * 256, t.p3.y * 256, (frame % 25600) / 100));
 		// line(screen_uv_to_pixel(t.p1),screen_uv_to_pixel(t.p2),RED);
@@ -156,9 +168,12 @@ static void render(int frame)
 
 int main(const char *cmdline)
 {
-	double d1[4] = {0.5,0.6,0.7,0.7};
-	double d2[4] = {0.8,0.4,0.2,0.1};
+	console::get().write(", ");
+
+	d64 d1[4] = {0.5,0.6,0.7,0.7};
+	d64 d2[4] = {0.8,0.4,0.2,0.1};
 	// console::get().writef("%u, ", (int)(d1[1]*1000));
+	console::get().write(", ");
 
 	Matrix<4, 1> a= Matrix<4, 1>(d1);
 	a.print();
@@ -203,6 +218,30 @@ int main(const char *cmdline)
 	int frame = 0;
 	while (true) {
 		render(frame);
+		// if (frame%25600==0){
+		// 	console::get().writef("0: %ld\n ", (s64)(d64(72.0) * d64(2)));
+		// 	console::get().writef("0: %ld\n ", (s64)(d64(72.0) * 2));
+		// 	console::get().writef("0: %ld\n ", (s64)(2 * d64(72.0) * d64(1)));
+		// 	console::get().writef("b: %ld\n ", (s64)(2.0 -d64(72.0)));
+		// 	console::get().writef("b: %ld\n ", (s64)(d64(2.0) -d64(72.0)));
+		// 	console::get().writef("c: %ld\n ", (s64)((2.0) -(72.0)));
+		// 	console::get().writef("0: %ld\n ", (s64)(d64(72.0) * d64(2)));
+		// 	console::get().writef("0: %ld\n ", (s64)(pow(3.0,3)* 1000));
+		// 	console::get().writef("x: %ld\n ", (s64)((pow(2.0,2)/d64(2.0))* 1000));
+		// 	console::get().writef("0: %ld\n ", (s64)((pow(2.0,4)/d64(24.0))* 1000));
+		// 	console::get().writef("0: %ld\n ", (s64)(cos(0.0)* d64(1000.0)));
+		// 	console::get().writef("1: %ld\n ", (s64)(cos(1.0)* d64(1000.0)));
+		// 	console::get().writef("2: %ld\n ", (s64)(cos(2.0)* d64(1000.0)));
+		// 	console::get().writef("3: %ld\n ", (s64)(cos(3.0)* d64(1000.0)));
+		// 	console::get().writef("4: %ld\n ", (s64)(cos(4.0)* d64(1000.0)));
+		// 	console::get().writef("5: %ld\n ", (s64)(cos(5.0)* d64(1000.0)));
+
+		// 	d64 theta = frame /25600.0;
+		// 	console::get().writef("%ld\n ", (s64)(theta* 1000));
+		// 	d64 a[9] = {1.0,0,0,0,cos(theta),-sin(theta),0,sin(theta),cos(theta)};
+		// 	Matrix<3, 3> rot_mat =Matrix<3, 3>(a);
+		// 	rot_mat.print();
+		// }
 		frame++;
 		// console::get().writef("frame %d\n", frame);
 	}
