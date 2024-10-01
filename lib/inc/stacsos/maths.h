@@ -255,9 +255,14 @@ class Transform : public Matrix<4, 4> {
     public:
 
     void translate(Vec3 p) {
-        set(0,3, p.x());
+        set(0,3,get_at(0,3) + p.x());
         set(1,3, get_at(1,3) + p.y());
         set(2,3, get_at(2,3) + p.z());
+
+        set(3,0, get_at(3,0) + p.x());
+        set(3,1, get_at(3,1) + p.y());
+        set(3,2, get_at(3,2) + p.z());
+
     };
     void scale() const{
         // return data[1];

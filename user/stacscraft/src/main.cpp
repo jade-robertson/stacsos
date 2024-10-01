@@ -48,7 +48,7 @@ struct triangle {
 };
 struct object3d{
 	list<triangle> tris;
-	Transform trans;
+	Transform *trans;
 };
 struct colour {
 	u8 r;
@@ -127,16 +127,20 @@ static void render(int frame)
 
 	for (unsigned int y = 0; y < HEIGHT; y++) {
 		for (unsigned int x = 0; x < WIDTH; x++) {
-			// set_pixel(x,y,WHITE);
+			set_pixel(x,y,WHITE);
 			// drawchar(x, y , (u8)x, (u8)y, (u8)(frame %100),'c');
 		}
 	}
 	for (auto &o : objects) {
-		Transform tr= o.trans;
+		(*o.trans).translate(Vec3(0.001,0.0001,0.001));
+		Transform tr= *o.trans;
 		// tr.print();
 		for (auto &t : o.tris) {
 			Vec4 p0 = Vec4(t.points[0],1.0);
-			Vec4 p1 =( p0) *(tr);
+			Vec4 p1 =( Vec4(t.points[0],1.0)) *(tr);
+			Vec4 p2 =( Vec4(t.points[1],1.0)) *(tr);
+			Vec4 p3 =( Vec4(t.points[2],1.0)) *(tr);
+			// p1.print();
 			// Vec3 p2
 			// Vec3 p3
 			Vec3 camera_point= Vec3(0.0,0.0,0.0);
@@ -146,13 +150,13 @@ static void render(int frame)
 			// Matrix<4,1> tri_p =Matrix<4,1> (t1);
 			//Viewport*Proj*View*Model *t
 			// console::get().writef("%d",t.p1.x);
-			draw_triangle(screen_uv_to_pixel(p1.toVec3()), screen_uv_to_pixel(t.points[1]), screen_uv_to_pixel(t.points[2]), colour(u8(t.points[2].x() * 256), u8(t.points[2].y() * 256), (frame % 25600) / 100));
+			draw_triangle(screen_uv_to_pixel(p1.toVec3()), screen_uv_to_pixel(p2.toVec3()), screen_uv_to_pixel(p3.toVec3()), colour(u8(t.points[2].x() * 256), u8(t.points[2].y() * 256), (frame % 25600) / 100));
 			// line(screen_uv_to_pixel(t.p1),screen_uv_to_pixel(t.p2),RED);
 			// line(screen_uv_to_pixel(t.p2),screen_uv_to_pixel(t.p3),GREEN);
 			// line(screen_uv_to_pixel(t.p3),screen_uv_to_pixel(t.p1),BLUE);
 		}
 	}
-	// syscalls::sleep(10);
+	syscalls::sleep(10);
 	send();
 
 	return;
@@ -207,8 +211,8 @@ int main(const char *cmdline)
 
 	obj1.tris.append(triangle({Vec3(0.0, 0.0, 0.0), Vec3(-0.3, -0.15, 0.0), Vec3(0.0, -0.3, 0.0)}));
 	obj1.tris.append(triangle({Vec3(0.0, 0.0, 0.0), Vec3(-0.3, -0.15, 0.0), Vec3(-0.3, 0.15, 0.0)}));
-	obj1.trans = Transform();
-	obj1.trans.translate(Vec3(0.1,0.00000001,0.00000001));
+	Transform obt = Transform();
+	obj1.trans = &obt;
 
 	objects.append(obj1);
 	int frame = 0;
