@@ -6,7 +6,6 @@
  * Tom Spink <tcs6@st-andrews.ac.uk>
  */
 #pragma once
-
 namespace stacsos {
 template <typename T> struct list_node {
 	typedef T elem;
@@ -142,6 +141,20 @@ public:
 		elem ret = front->data;
 		elems_ = front->next;
 		delete front;
+		count_--;
+
+		return ret;
+	}
+
+	elem const &pop_last() 
+	{
+		node *last = elems_;
+		while (last->next) {
+			last = last->next;
+		}
+		elem ret = last->data;
+
+		delete last;
 		count_--;
 
 		return ret;

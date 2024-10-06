@@ -15,22 +15,14 @@
 #include <stacsos/console.h>
 #include <stacsos/helpers.h>
 #include <stacsos/list.h>
+#include <stacsos/maths.h>
 #include <stacsos/memops.h>
 #include <stacsos/objects.h>
 #include <stacsos/threads.h>
 #include <stacsos/user-syscall.h>
-#include <stacsos/maths.h>
 // #include "main.h"
 using namespace stacsos;
 
-// struct mat{
-
-// }
-// struct Vec3 {
-// 	double x, y, z;
-
-
-// };
 struct vec2i {
 	int x, y;
 	vec2i operator+(const vec2i &a) const { return vec2i(a.x + x, a.y + y); }
@@ -38,39 +30,47 @@ struct vec2i {
 	vec2i operator*(const double &a) const { return vec2i(a * x, a * y); }
 };
 
-
+struct vertex {
+	Vec3 points[3];
+	d64 depth;
+};
 
 struct triangle {
 	Vec3 points[3];
-	// Vec3 p1;
-	// Vec3 p2;
-	// Vec3 p3;
 };
-struct object3d{
+struct object3d {
 	list<triangle> tris;
-	Transform *trans;
+	Transform trans;
 };
 struct colour {
 	u8 r;
 	u8 g;
 	u8 b;
 };
-
-// typedef Matrix<4,4> mat4x4;
+enum Mode { RENDER, WIREFRAME, NORMAL };
+Mode RENDER_MODE;
 const colour WHITE = colour(255, 255, 255);
 const colour BLACK = colour(0, 0, 0);
 const colour RED = colour(255, 0, 0);
 const colour GREEN = colour(0, 255, 0);
 const colour BLUE = colour(0, 0, 255);
-const int WIDTH = 640; // frame is 80x25
+
+#define ORIGIN Vec3(0, 0, 0)
+#define UP Vec3(0, 1.0, 0)
+#define DOWN Vec3(0, -1.0, 0)
+#define LEFT Vec3(-1.0, 0, 0)
+#define RIGHT Vec3(1.0, 0, 0)
+#define FORWARD Vec3(0, 0, -1.0)
+#define BACK Vec3(0, 0, 1.0)
+const int WIDTH = 640;
 const int HEIGHT = 480;
 u32 frame_buffer[HEIGHT][WIDTH];
+u32 depth_buffer[HEIGHT][WIDTH];
 list<triangle> tris;
-list<object3d> objects;
+list<object3d *> objects;
 object3d obj1;
 object *fb;
-
-
+atomic_u64 input_lock = 0;
 static void send()
 {
 	// u32 u = (r<< 16) |(g << 8) | b;
@@ -79,6 +79,8 @@ static void send()
 
 static void set_pixel(u16 x, u16 y, colour c)
 {
+	if (x > WIDTH - 1 | y > HEIGHT - 1)
+		return;
 	u32 u = (c.r << 16) | (c.g << 8) | c.b;
 	frame_buffer[y][x] = u;
 }
@@ -122,130 +124,176 @@ static void draw_triangle(vec2i p0, vec2i p1, vec2i p2, colour c)
 		}
 	}
 }
-static void render(int frame)
+static Matrix<4, 4> proj_matrix(d64 far, d64 near, d64 fov)
 {
+	Matrix<4, 4> proj_mat = Matrix<4, 4>();
+	d64 scale = d64(1.0) / tan(fov * d64(0.5) * d64(PI) / d64(180.0));
 
+	proj_mat.set(0, 0, scale);
+	proj_mat.set(1, 1, scale);
+	proj_mat.set(2, 2, d64(-(far.d)) / (far - near));
+	proj_mat.set(3, 2, d64(-(far.d * near.d)) / (far - near));
+	proj_mat.set(2, 3, -1.0);
+	proj_mat.set(3, 3, 0.0);
+	return proj_mat;
+}
+
+static void render(int frame, Matrix<4, 4> cam_matrix)
+{
+	// clear frame buffer
 	for (unsigned int y = 0; y < HEIGHT; y++) {
 		for (unsigned int x = 0; x < WIDTH; x++) {
-			set_pixel(x,y,WHITE);
-			// drawchar(x, y , (u8)x, (u8)y, (u8)(frame %100),'c');
+			set_pixel(x, y, WHITE);
 		}
 	}
+
+	Matrix<4, 4> proj_mat = proj_matrix(100.0, 0.1, 90.0);
 	for (auto &o : objects) {
-		(*o.trans).translate(Vec3(0.001,0.0001,0.001));
-		Transform tr= *o.trans;
+
+		Transform ttr = stacsos::rotate_z_mat(frame * 0.0001);
+		Transform r = stacsos::rotate_x_mat(frame * 0.0002);
+		Transform sr = stacsos::translation_mat(Vec3(0.0, 0.0, -4.0));
+		auto tr = (ttr) * (r)*sr;
 		// tr.print();
-		for (auto &t : o.tris) {
-			Vec4 p0 = Vec4(t.points[0],1.0);
-			Vec4 p1 =( Vec4(t.points[0],1.0)) *(tr);
-			Vec4 p2 =( Vec4(t.points[1],1.0)) *(tr);
-			Vec4 p3 =( Vec4(t.points[2],1.0)) *(tr);
-			// p1.print();
-			// Vec3 p2
-			// Vec3 p3
-			Vec3 camera_point= Vec3(0.0,0.0,0.0);
-			Vec3 camera_look_point= Vec3(0.0,0.0,1.0);
-			//triangle position matrix
-			// d64 t1[4] ={(t.p1.x()),(t.p1.y()),(t.p1.z()),1.0};
-			// Matrix<4,1> tri_p =Matrix<4,1> (t1);
-			//Viewport*Proj*View*Model *t
-			// console::get().writef("%d",t.p1.x);
-			draw_triangle(screen_uv_to_pixel(p1.toVec3()), screen_uv_to_pixel(p2.toVec3()), screen_uv_to_pixel(p3.toVec3()), colour(u8(t.points[2].x() * 256), u8(t.points[2].y() * 256), (frame % 25600) / 100));
-			// line(screen_uv_to_pixel(t.p1),screen_uv_to_pixel(t.p2),RED);
-			// line(screen_uv_to_pixel(t.p2),screen_uv_to_pixel(t.p3),GREEN);
-			// line(screen_uv_to_pixel(t.p3),screen_uv_to_pixel(t.p1),BLUE);
+		int t_count = 0;
+		for (auto &t : (*o).tris) {
+			t_count++;
+			Vec4 p1 = (Vec4(t.points[0], 1.0)) * (tr) * (*o).trans * cam_matrix * proj_mat;
+			Vec4 p2 = (Vec4(t.points[1], 1.0)) * (tr) * (*o).trans * cam_matrix * proj_mat;
+			Vec4 p3 = (Vec4(t.points[2], 1.0)) * (tr) * (*o).trans * cam_matrix * proj_mat;
+
+			Vec3 camera_point = Vec3(0.0, 0.0, 0.0);
+			Vec3 camera_look_point = Vec3(0.0, 0.0, 1.0);
+
+			colour tri_col = colour(u8(t.points[2].x() * 256 + t_count * 10), u8(t.points[2].z() * 256), (frame % 25600) / 100);
+			if (RENDER_MODE == RENDER) {
+				draw_triangle(screen_uv_to_pixel(p1.toVec3()), screen_uv_to_pixel(p2.toVec3()), screen_uv_to_pixel(p3.toVec3()), tri_col);
+
+			} else if (RENDER_MODE == WIREFRAME) {
+				line(screen_uv_to_pixel(p1.toVec3()), screen_uv_to_pixel(p2.toVec3()), tri_col);
+				line(screen_uv_to_pixel(p2.toVec3()), screen_uv_to_pixel(p3.toVec3()), tri_col);
+				line(screen_uv_to_pixel(p3.toVec3()), screen_uv_to_pixel(p1.toVec3()), tri_col);
+			}
 		}
 	}
-	syscalls::sleep(10);
+	// syscalls::sleep(10);
 	send();
 
 	return;
 }
 
+static void *input_thread(void *input_queue)
+{
+	console::get().write("thisis from input thread");
+	char *q = (char *)input_queue;
+	while (true) {
+		char c = console::get().read_char();
+
+
+		q[0] = (c);
+		input_lock++;
+	}
+}
+
+Matrix<4, 4> gen_view_mat(Vec3 pos, d64 pitch, d64 yaw)
+{
+	Vec3 xaxis = Vec3(cos(yaw).d, 0.0, -(sin(yaw)).d);
+	Vec3 yaxis = Vec3(sin(yaw).d * sin(pitch).d, cos(pitch).d, cos(yaw).d * sin(pitch).d);
+	Vec3 zaxis = Vec3(sin(yaw).d * cos(pitch).d, -sin(pitch).d, cos(yaw).d * cos(pitch).d);
+	d64 mat_i[16] = { xaxis.x(), yaxis.x(), zaxis.x(), 0.0, xaxis.y(), yaxis.y(), zaxis.y(), 0.0, xaxis.z(), yaxis.z(), zaxis.z(), 0.0, -xaxis.dot(pos).d,
+		-yaxis.dot(pos).d, -zaxis.dot(pos).d, 1.0 };
+	Matrix<4, 4> viewMat = Matrix<4, 4>(mat_i);
+	return viewMat;
+}
+
+object3d gen_cube(Transform t)
+{
+	object3d o = object3d();
+	console::get().writef("%");
+	o.tris.append(triangle({ Vec3(0.0, 1.0, 0.0), Vec3(1.0, 1.0, 0.0), Vec3(1.0, 1.0, 1.0) }));
+	o.tris.append(triangle({ Vec3(0.0, 1.0, 0.0), Vec3(0.0, 1.0, 1.0), Vec3(1.0, 1.0, 1.0) }));
+	// bottom face
+	o.tris.append(triangle({ Vec3(0.0, 0.0, 0.0), Vec3(1.0, 0.0, 0.0), Vec3(1.0, 0.0, 1.0) }));
+	o.tris.append(triangle({ Vec3(0.0, 0.0, 0.0), Vec3(0.0, 0.0, 1.0), Vec3(1.0, 0.0, 1.0) }));
+
+	// front face
+	o.tris.append(triangle({ Vec3(0.0, 0.0, 0.0), Vec3(1.0, 0.0, 0.0), Vec3(1.0, 1.0, 0.0) }));
+	o.tris.append(triangle({ Vec3(0.0, 0.0, 0.0), Vec3(0.0, 1.0, 0.0), Vec3(1.0, 1.0, 0.0) }));
+	// back face
+	o.tris.append(triangle({ Vec3(0.0, 0.0, 1.0), Vec3(1.0, 0.0, 1.0), Vec3(1.0, 1.0, 1.0) }));
+	o.tris.append(triangle({ Vec3(0.0, 0.0, 1.0), Vec3(0.0, 1.0, 1.0), Vec3(1.0, 1.0, 1.0) }));
+
+	// left face
+	o.tris.append(triangle({ Vec3(0.0, 0.0, 0.0), Vec3(0.0, 0.0, 1.0), Vec3(0.0, 1.0, 1.0) }));
+	o.tris.append(triangle({ Vec3(0.0, 0.0, 0.0), Vec3(0.0, 1.0, 0.0), Vec3(0.0, 1.0, 1.0) }));
+	// back face
+	o.tris.append(triangle({ Vec3(1.0, 0.0, 0.0), Vec3(1.0, 0.0, 1.0), Vec3(1.0, 1.0, 1.0) }));
+	o.tris.append(triangle({ Vec3(1.0, 0.0, 0.0), Vec3(1.0, 1.0, 0.0), Vec3(1.0, 1.0, 1.0) }));
+	o.trans = t;
+	return o;
+}
 int main(const char *cmdline)
 {
-	console::get().write(", ");
-
-	d64 d1[4] = {0.5,0.6,0.7,0.7};
-	d64 d2[4] = {0.8,0.4,0.2,0.1};
-	// console::get().writef("%u, ", (int)(d1[1]*1000));
-	console::get().write(", ");
-
-	Matrix<4, 1> a= Matrix<4, 1>(d1);
-	a.print();
-		console::get().writef("\n");
-
-	Matrix<1, 4> b = Matrix<1, 4>(d2);
-	b.print();
-	console::get().writef("\n");
-	Matrix<4, 4> c = a * b;
-	c.print();
+	RENDER_MODE = RENDER;
 	fb = object::open("/dev/virtcon0");
+	// t = object::open("/dev/c");
 
 	if (!fb) {
 		console::get().write("error: unable to open virtual console\n");
 		return 1;
 	}
-	//    printf("\033\x09How many threads would you like to use?\n");
-	//    int numThreads = getch();
-	// int numThreads = 8;
-	// thread *threads[numThreads];
 
-	// for (int k = 0; k < numThreads; k++) {
-	// 	threads[k] = thread::start(mandelbrot, (void *)(u64)k);
-	// }
+	object3d c1 = gen_cube(stacsos::translation_mat(Vec3(0, 0, 0)));
+	object3d c2 = gen_cube(stacsos::translation_mat(Vec3(2, 0, 0)));
 
-	// for (int k = 0; k < numThreads; k++) {
-	// 	threads[k]->join();
-	// }
-
-	// tris.append(triangle(Vec3(.1,0.0,-0.1), Vec3(0.9,0.9,0.0),Vec3((frame%1000)/1000.0,0.0,0.0)));
-	// tris.append(triangle(Vec3(-0.3,0.0,0.1), Vec3(0.8,-0.8,0.0),Vec3(1.0,0.5,0.0)));
-	// tris.append(triangle(Vec3(-0.2,0.0,0.0), Vec3(-0.5,1.0,0.0),Vec3(1.0,-0.2,0.0)));
-
-	obj1.tris.append(triangle({Vec3(0.0, 0.0, 0.0), Vec3(0, 0.3, 0.0), Vec3(0.3, 0.15, 0.0)}));
-	obj1.tris.append(triangle({Vec3(0.0, 0.0, 0.0), Vec3(0, 0.3, 0.0), Vec3(-0.3, 0.15, 0.0)}));
-
-	obj1.tris.append(triangle({Vec3(0.0, 0.0, 0.0), Vec3(0.3, -0.15, 0.0), Vec3(0.0, -0.3, 0.0)}));
-	obj1.tris.append(triangle({Vec3(0.0, 0.0, 0.0), Vec3(0.3, -0.15, 0.0), Vec3(0.3, 0.15, 0.0)}));
-
-	obj1.tris.append(triangle({Vec3(0.0, 0.0, 0.0), Vec3(-0.3, -0.15, 0.0), Vec3(0.0, -0.3, 0.0)}));
-	obj1.tris.append(triangle({Vec3(0.0, 0.0, 0.0), Vec3(-0.3, -0.15, 0.0), Vec3(-0.3, 0.15, 0.0)}));
-	Transform obt = Transform();
-	obj1.trans = &obt;
-
-	objects.append(obj1);
+	objects.push(&c1);
+	objects.push(&(c2));
 	int frame = 0;
+	thread *input_thr;
+	char input_buffer[256];
+	input_thr = thread::start(input_thread, (void *)(input_buffer));
+	d64 speed = 10.0;
+	d64 delta = 0.01;
+	Vec3 camera_pos = Vec3(0, 0, 0);
 	while (true) {
-		// obj1.trans.translate(Vec3(sin((frame % 25600) / 100),d64(0.01),d64(0.01)));
-		
-		render(frame);
-		// if (frame%25600==0){
-		// 	console::get().writef("0: %ld\n ", (s64)(d64(72.0) * d64(2)));
-		// 	console::get().writef("0: %ld\n ", (s64)(d64(72.0) * 2));
-		// 	console::get().writef("0: %ld\n ", (s64)(2 * d64(72.0) * d64(1)));
-		// 	console::get().writef("b: %ld\n ", (s64)(2.0 -d64(72.0)));
-		// 	console::get().writef("b: %ld\n ", (s64)(d64(2.0) -d64(72.0)));
-		// 	console::get().writef("c: %ld\n ", (s64)((2.0) -(72.0)));
-		// 	console::get().writef("0: %ld\n ", (s64)(d64(72.0) * d64(2)));
-		// 	console::get().writef("0: %ld\n ", (s64)(pow(3.0,3)* 1000));
-		// 	console::get().writef("x: %ld\n ", (s64)((pow(2.0,2)/d64(2.0))* 1000));
-		// 	console::get().writef("0: %ld\n ", (s64)((pow(2.0,4)/d64(24.0))* 1000));
-		// 	console::get().writef("0: %ld\n ", (s64)(cos(0.0)* d64(1000.0)));
-		// 	console::get().writef("1: %ld\n ", (s64)(cos(1.0)* d64(1000.0)));
-		// 	console::get().writef("2: %ld\n ", (s64)(cos(2.0)* d64(1000.0)));
-		// 	console::get().writef("3: %ld\n ", (s64)(cos(3.0)* d64(1000.0)));
-		// 	console::get().writef("4: %ld\n ", (s64)(cos(4.0)* d64(1000.0)));
-		// 	console::get().writef("5: %ld\n ", (s64)(cos(5.0)* d64(1000.0)));
-
-		// 	d64 theta = frame /25600.0;
-		// 	console::get().writef("%ld\n ", (s64)(theta* 1000));
-		// 	d64 a[9] = {1.0,0,0,0,cos(theta),-sin(theta),0,sin(theta),cos(theta)};
-		// 	Matrix<3, 3> rot_mat =Matrix<3, 3>(a);
-		// 	rot_mat.print();
-		// }
+		Matrix<4, 4> cam_mat = gen_view_mat(camera_pos, 0.0, 0.0);
+		render(frame, cam_mat);
 		frame++;
-		// console::get().writef("frame %d\n", frame);
+
+		if (input_lock.fetch_and_add(0)!=0) {
+			// console::get().writef("char reacived: %d\n",input_lock.fetch_and_add(0));
+			int i = input_lock.fetch_and_add(-1);
+			char c = input_buffer[0];
+			// console::get().writef("char reacived: %c\n",c);
+						// console::get().writef("char reacived: %d\n",input_lock.fetch_and_add(0));
+
+
+			if (c == ' ') {
+
+				switch (RENDER_MODE) {
+				case RENDER: {
+					RENDER_MODE = WIREFRAME;
+					break;
+				};
+				case WIREFRAME: {
+					RENDER_MODE = RENDER;
+					break;
+				};
+				}
+			}
+			if (c == 'w') {
+				camera_pos = (camera_pos + (BACK)*speed * delta);
+			};
+			if (c == 's') {
+				camera_pos = (camera_pos + (FORWARD)*speed * delta);
+			};
+			if (c == 'a') {
+				camera_pos = (camera_pos + (LEFT)*speed * delta);
+			};
+			if (c == 'd') {
+				camera_pos = (camera_pos + (RIGHT)*speed * delta);
+			};
+		}
 	}
 	// wait for input so the prompt doesn't ruin the lovely image
 	// remove this when timing!

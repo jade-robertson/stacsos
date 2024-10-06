@@ -72,12 +72,6 @@ void physical_console::on_key_down(keys key)
 			return;
 		}
 		break;
-	case keys::KEY_F3:
-		if (alt_pressed_) {
-			set_current_vc(*virtual_consoles_.at(2));
-			return;
-		}
-		break;
 
 	case keys::KEY_F3:
 		if (alt_pressed_ && virtual_consoles_.count() > 2) {
