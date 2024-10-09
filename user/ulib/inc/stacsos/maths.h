@@ -117,7 +117,12 @@ d64 sin(d64 angle);
 
 d64 cos(d64 angle);
 d64 tan(d64 angle);
+d64 abs(d64 a);
 
+
+//this is kinda bad but idk
+//from https://stackoverflow.com/a/29019938
+d64 sqroot(d64 square);
 template <u8 r, u8 c> class Matrix {
 
 public:
@@ -129,6 +134,7 @@ public:
 	template <u8 d> Matrix<r, d> operator*(const Matrix<c, d> &a) const;
 	Matrix<r, c> operator*(const d64 &a) const;
 	Matrix<r, c> operator+(const Matrix<r, c> &a)const;
+	Matrix<r, c> operator-(const Matrix<r, c> &a)const;
 
 	void print()
 	{
@@ -201,10 +207,31 @@ template <u8 r, u8 c> Matrix<r, c> Matrix<r, c>::operator+(const Matrix<r, c> &a
 
 	return res;
 }
+template <u8 r, u8 c> Matrix<r, c> Matrix<r, c>::operator-(const Matrix<r, c> &a) const
+{
+	Matrix<r, c> res;
+
+	for (u8 ri = 0; ri < r; ri++) {
+		for (u8 ci = 0; ci < c; ci++) {
+			d64 v = 0;
+			v = v + get_at(ri, ci) - a.get_at(ri, ci);
+
+			res.set(ri, ci, v);
+		}
+	};
+
+	return res;
+}
+
 
 // class Vec4 : public Matrix<1, 4>{};
 class Vec3 : public Matrix<1, 3> {
 public:
+	Vec3()
+	{
+
+	};
+
 	Vec3(d64 x, d64 y, d64 z)
 	{
 		data[0] = x;
@@ -226,9 +253,20 @@ public:
 	d64 dot(Vec3 other){
 		return (x() *other.x()) + (y() *other.y()) + (z() *other.z())  ;
 	}
+	Vec3 cross(Vec3 other){
+		return Vec3(y()*other.z()-z()*other.y(), z()*other.x()-x()*other.z(), x()*other.y()-y()*other.x())  ;
+	}
 	d64 x() const { return data[0]; };
 	d64 y() const { return data[1]; };
 	d64 z() const { return data[2]; };
+	Vec3 normalise() {
+	    // console::get().writef("thisis from input thread %ld\n ", int((x()*x() + y()*y() +z()*z() )*100));
+
+		d64 l = stacsos::sqroot(x()*x() + y()*y() +z()*z() );
+		if (l.d==0){l=1.0;}
+	    // console::get().writef("thisis from input thread %ld\n ", int( l*100));
+		return Vec3(x().d/l.d,y().d/l.d,z().d/l.d);
+	};
 };
 class Vec4 : public Matrix<1, 4> {
 public:

@@ -47,8 +47,19 @@ d64 stacsos::tan(d64 angle)
 {
 	return sin(angle)/cos(angle);
 };
+d64 stacsos::sqroot(d64 square)
+{
+    d64 root=square/3;
+    int i;
+    if (square.d <= 0.0) return 0.0;
+    for (i=0; i<32; i++)
+        root = (root + square / root) / 2;
+    return root;
+};
 
-
+d64 stacsos::abs(d64 a){
+	return  (a.d>0.0) ? a : d64(-a.d);
+};
 Transform stacsos::translation_mat(Vec3 p ){
 	Transform t = Transform();
 	t.set(3, 0, p.x());
@@ -77,6 +88,8 @@ Transform stacsos::rotate_y_mat(d64 theta ){
 
 Transform stacsos::rotate_z_mat(d64 theta ){
 	Transform t = Transform();
+					// stacsos::console::get().writef("%ld, ", (s64)(theta* 1000));
+
 	t.set(0, 0, cos(theta));
 	t.set(1, 0, sin(theta));
 	t.set(0, 1, -(sin(theta)).d);
