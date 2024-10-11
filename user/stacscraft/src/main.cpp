@@ -114,17 +114,13 @@ static void line(vec2i start, vec2i end, colour c)
 static void draw_triangle(Vec3 p0, Vec3 p1, Vec3 p2, Vec3 norm, colour c)
 {
 
-	// calcute normal
 	d64 depth = (p0.z() + p1.z() + p2.z()) / d64(3.0);
-	// console::get().writef("%dfps,\n",(s64)((depth) * 1000));
 	d64 light_str = norm.dot(light_dir);
 	light_str = light_str.d/4.0+0.75;
 		c = colour((u8)(light_str.d * c.r),(u8)(light_str.d * c.g),(u8)(light_str.d * c.b));
 
 	if (RENDER_MODE == DEPTH) {
 		u8 d_col = (u8)((depth.d * 256.0));
-		// console::get().writef("%dfps,\n	",d_col);
-
 		c = colour(d_col, d_col, d_col);
 	}
 	vec2i p0i = screen_uv_to_pixel(p0);
@@ -140,67 +136,47 @@ static void draw_triangle(Vec3 p0, Vec3 p1, Vec3 p2, Vec3 norm, colour c)
 	if (p1i.y > p2i.y)
 		swap(p1i, p2i);
 	int total_height = p2i.y - p0i.y;
-	for (int i = 0; i < total_height; i++) {
+	// console::get().writef("%d\n",total_height);
+	//total height is all of tri, so skip parts where less than 0 or greater than HEIGHT
+	// p0i.y +i <0 0 skip
+	//p0i.y + i > HEIGHT SKIP
+	//if p0.y is negative, i start at -p0i.y
+	//if 
+	// consider p0i.y =-600, and total hiehgt =900
+	//height start = 600
+	//height emd = 600
+	if (total_height <0) return;
+	// if t0.y + total_height > HEIGHT, then max_height = HEIGHT - t0.y
+	int height_start = p0i.y<0 ? -p0i.y : 0;
+	int height_end = p0i.y+ total_height > HEIGHT ? HEIGHT - p0i.y : total_height;
+	for (int i =height_start; i < height_end; i++) {
+		int line_y = p0i.y + i;
 		bool second_half = i > p1i.y - p0i.y || p1i.y == p0i.y;
 		int segment_height = second_half ? p2i.y - p1i.y : p1i.y - p0i.y;
 		double alpha = (double)i / total_height;
 		double beta = (double)(i - (second_half ? p1i.y - p0i.y : 0)) / segment_height;
-		vec2i A = p0i + (p2i - p0i) * alpha;
-		vec2i B = second_half ? p1i + (p2i - p1i) * beta : p0i + (p1i - p0i) * beta;
+		vec2i A = p0i + (p2i - p0i) * alpha; //how far up thorugh the triangle we are, on the long side
+		vec2i B = second_half ? p1i + (p2i - p1i) * beta : p0i + (p1i - p0i) * beta; //how far up thorugh the triangle we are, on the short side
+		// if (p0i.y +i < 0 | p0i.y +i >= HEIGHT) continue;
 		if (A.x > B.x)
 			swap(A, B);
-		for (int j = A.x; j <= B.x; j++) {
+		for (int j = max(A.x,0); j <= min(B.x,WIDTH); j++) {
 			if (float(depth_buffer[p0i.y + i][j]) < float(depth.d)) {
-				depth_buffer[p0i.y + i][j] = float(depth.d);
+				depth_buffer[line_y][j] = float(depth.d);
 				if (RENDER_MODE == NORMAL) {
-					set_pixel(j, p0i.y + i,
+					set_pixel(j, line_y,
 						colour(u8(norm.x() * 128 + 256), u8(norm.y() * 128 + 256), u8(norm.z() * 128 + 256))); // attention, due to int casts t0.y+i != A.y
 				} else if (RENDER_MODE == SHADING) { 
-					d64 light_str = norm.dot(light_dir);
-					// norm.print();
-					// light_dir.print();
-					// console::get().writef("sqrtoot 16 = %ld\n", int(light_str *100));
-
-					set_pixel(j, p0i.y + i, colour(u8(light_str * 256), u8(light_str * 256), u8(light_str * 256)));
+					set_pixel(j, line_y, colour(u8(light_str * 256), u8(light_str * 256), u8(light_str * 256)));
 				} else {
-					set_pixel(j, p0i.y + i, c); // attention, due to int casts t0.y+i != A.y
+					set_pixel(j, line_y, c); // attention, due to int casts t0.y+i != A.y
 				}
 			}
 		}
 	}
 }
 
-static Vec3 barycentric(vec2i p0i, vec2i p1i, vec2i p2i, int x, int y)
-{
-	Vec3 u = Vec3(p2i.x - p0i.x, p1i.x - p0i.x, p0i.x - x).cross(Vec3(p2i.y - p0i.y, p1i.y - p0i.y, p0i.y - y));
-	if ((u.z()).d<1 & (u.z()).d> - 1.0)
-		return Vec3(-1, 1, 1);
-	return Vec3(d64(1) - ((u.x() + u.y()) / u.z()), u.y() / u.z(), u.x() / u.z());
-}
-static void draw_triangle2(Vec3 p0, Vec3 p1, Vec3 p2, colour c)
-{
-	vec2i p0i = screen_uv_to_pixel(p0);
-	vec2i p1i = screen_uv_to_pixel(p1);
-	vec2i p2i = screen_uv_to_pixel(p2);
 
-	vec2i bboxmax = vec2i(min(max(max(p0i.x, p1i.x), p2i.x), WIDTH), min(max(max(p0i.y, p1i.y), p2i.y), HEIGHT)); // Upper Right
-	vec2i bboxmin = vec2i(max(min(min(p0i.x, p1i.x), p2i.x), 0), max(min(min(p0i.y, p1i.y), p2i.y), 0)); // Bottom Left
-	for (int x = bboxmin.x; x < bboxmax.x; x++) {
-		for (int y = bboxmin.y; y < bboxmax.y; y++) {
-			Vec3 bary_coords = barycentric(p0i, p1i, p2i, x, y);
-			if (bary_coords.x().d < 0 || bary_coords.y().d < 0 || bary_coords.z().d < 0)
-				continue;
-			d64 depth = p0.z() * bary_coords.x() + p1.z() * bary_coords.y() + p2.z() * bary_coords.z();
-
-			if (RENDER_MODE == DEPTH)
-				c = colour((depth * 256), (depth * 256), (depth * 256));
-			if (float(depth_buffer[y][x]) < float(depth.d)) {
-				depth_buffer[y][x] = float(depth.d);
-				set_pixel(x, y, c);
-			}
-		}
-	}
-}
 static Matrix<4, 4> proj_matrix(d64 far, d64 near, d64 fov)
 {
 	Matrix<4, 4> proj_mat = Matrix<4, 4>();
@@ -228,34 +204,35 @@ static void render(int frame, Matrix<4, 4> cam_matrix, d64 delta)
 	for (auto &o : objects) {
 
 		int t_count = 0;
+		Matrix<4,4> tr = ( (o).trans * cam_matrix * proj_mat);
+		
 		for (auto &t : (o).tris) {
 			t_count++;
 			Vec3 sideA = t.points[0] - t.points[1];
 			Vec3 sideB = t.points[0] - t.points[2];
 			Vec3 norm = sideA.cross(sideB).normalise();
-			// 	sideA.print();
-			// 	sideB.print();
-			// 	sideA.cross(sideB).print();
-			// 	sideA.cross(sideB).normalise().print();
-			// 	norm.print();
-			// 		console::get().write("\n");
+			
+			Vec4 p1_ = (Vec4(t.points[0], 1.0)) *tr;
+			Vec4 p2_ = (Vec4(t.points[1], 1.0)) *tr;
+			Vec4 p3_ = (Vec4(t.points[2], 1.0)) *tr;
 
-			// syscalls::sleep(10);
-			Vec4 p1 = (Vec4(t.points[0], 1.0)) * (o).trans * cam_matrix * proj_mat;
-			Vec4 p2 = (Vec4(t.points[1], 1.0)) * (o).trans * cam_matrix * proj_mat;
-			Vec4 p3 = (Vec4(t.points[2], 1.0)) * (o).trans * cam_matrix * proj_mat;
-			if (abs(p1.toVec3().x()).d > 1.0 | abs(p1.toVec3().y()).d > 1.0 | abs(p1.toVec3().z()).d < 1.0) {
+			Vec3 p1 = p1_.toVec3();
+			Vec3 p2 = p2_.toVec3();
+			Vec3 p3 = p3_.toVec3();
+			int num_outside=0;
+			if ((p1.z()).d < 0.0) {
+				num_outside ++;
 				continue;
 			}
-			if (abs(p2.toVec3().x()).d > 1.0 | abs(p2.toVec3().y()).d > 1.0 | abs(p2.toVec3().z()).d < 1.0) {
+			if ((p2.z()).d < 0.0) {
+				num_outside++;
 				continue;
 			}
-			if (abs(p3.toVec3().x()).d > 1.0 | abs(p3.toVec3().y()).d > 1.0 | abs(p3.toVec3().z()).d < 1.0) {
+			if ((p3.z()).d < 0.0) {
+				num_outside++;
 				continue;
 			}
 
-			Vec3 camera_point = Vec3(0.0, 0.0, 0.0);
-			Vec3 camera_look_point = Vec3(0.0, 0.0, 1.0);
 			colour tri_col;
 			switch (o.mat) {
 			case DIRT:
@@ -272,12 +249,12 @@ static void render(int frame, Matrix<4, 4> cam_matrix, d64 delta)
 			}
 			// colour tri_col = colour(u8(t.points[2].x() * 256 + t_count * 10), u8(t.points[2].z() * 256), (frame % 25600) / 100);
 			if (RENDER_MODE != WIREFRAME) {
-				draw_triangle(p1.toVec3(), p2.toVec3(), p3.toVec3(), norm, tri_col);
+				draw_triangle(p1, p2, p3, norm, tri_col);
 
 			} else if (RENDER_MODE == WIREFRAME) {
-				line(screen_uv_to_pixel(p1.toVec3()), screen_uv_to_pixel(p2.toVec3()), tri_col);
-				line(screen_uv_to_pixel(p2.toVec3()), screen_uv_to_pixel(p3.toVec3()), tri_col);
-				line(screen_uv_to_pixel(p3.toVec3()), screen_uv_to_pixel(p1.toVec3()), tri_col);
+				line(screen_uv_to_pixel(p1), screen_uv_to_pixel(p2), tri_col);
+				line(screen_uv_to_pixel(p2), screen_uv_to_pixel(p3), tri_col);
+				line(screen_uv_to_pixel(p3), screen_uv_to_pixel(p1), tri_col);
 			}
 		}
 	}
@@ -330,8 +307,8 @@ void setup_cube(object3d *o, Vec3 pos, Material m)
 	o->tris[9] = (triangle({ Vec3(0.0, 0.0, 0.0), Vec3(0.0, 1.0, 0.0), Vec3(0.0, 1.0, 1.0) }));
 
 	// right face
-	o->tris[10] = (triangle({ Vec3(1.0, 0.0, 0.0), Vec3(1.0, 1.0, 1.0), Vec3(1.0, 0.0, 1.0) }));
-	o->tris[11] = (triangle({ Vec3(1.0, 0.0, 0.0), Vec3(1.0, 1.0, 0.0), Vec3(1.0, 1.0, 1.0) }));
+	o->tris[10] = (triangle({ Vec3(1.0, 0.0, 0.0), Vec3(1.0, 0.0, 1.0), Vec3(1.0, 1.0, 1.0) }));
+	o->tris[11] = (triangle({ Vec3(1.0, 0.0, 0.0), Vec3(1.0, 1.0, 1.0), Vec3(1.0, 1.0, 0.0) }));
 	o->trans = stacsos::translation_mat(pos);
 	o->mat = m;
 }
@@ -444,10 +421,13 @@ int main(const char *cmdline)
 				};
 				}
 			}
-			Vec4 cam_forward_ = Vec4(BACK, 0.0) * stacsos::rotate_y_mat(pitch);
+			Vec4 cam_forward_ = Vec4(BACK, 0.0) * stacsos::rotate_y_mat(-pitch.d);
+			// cam_forward_.print();
 			Vec3 cam_forward = Vec3(cam_forward_.x(), cam_forward_.y(), cam_forward_.z()).normalise();
+			// cam_forward.print();
+
 			Vec3 cam_right = cam_forward.cross(UP).normalise();
-			cam_right.print();
+			// cam_right.print();
 			if (c == 'w') {
 				camera_pos = (camera_pos + (cam_forward)*speed * delta);
 			};
