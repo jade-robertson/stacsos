@@ -355,7 +355,7 @@ int main(const char *cmdline)
 	setup_cube(&objects[72], Vec3(4, 3, 5), LEAVES);
 	setup_cube(&objects[73], Vec3(4, 3, 3), LEAVES);
 	setup_cube(&objects[74], Vec3(4, 4, 4), LEAVES);
-
+	 int object_counter = 75;
 	// object3d c1 = setup_cube(stacsos::translation_mat(Vec3(0, 0, 5.0)));
 	// object3d c2 = setup_cube(stacsos::translation_mat(Vec3(2, 0, 5.0)));
 	console::get().writef("got her2e\n");
@@ -453,6 +453,13 @@ int main(const char *cmdline)
 			if (c == 'e') {
 				pitch = pitch - (speed * delta * d64(0.3));
 			};
+			if (c == 'f') {
+				
+				setup_cube(&objects[object_counter++], camera_pos, LEAVES);
+
+			};
+			
+
 		}
 	}
 	// wait for input so the prompt doesn't ruin the lovely image
