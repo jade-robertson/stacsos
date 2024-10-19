@@ -5,3 +5,4 @@ out/
 kernel/inc/stacsos/kernel/sched/alg/rr.h
 kernel/src/sched/alg/rr.cpp
 kernel/inc/stacsos/kernel/sched/alg/rr.h
+kernel/src/sched/alg/rr.cpp
