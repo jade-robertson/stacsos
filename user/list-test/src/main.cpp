@@ -9,9 +9,7 @@ int main(const char *cmdline)
         test_list.append(x);
 	} 
     while(!test_list.empty()){
-    console::get().writef("%d\n",test_list.pop());
-
+        console::get().writef("%d\n",test_list.pop());
     }
-    
 	return 0;
 }

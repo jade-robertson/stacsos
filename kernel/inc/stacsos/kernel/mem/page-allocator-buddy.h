@@ -29,6 +29,7 @@ public:
 	virtual void dump() const override;
 
 private:
+
 	static const int LastOrder = 16;
 
 	page *free_list_[LastOrder + 1];
@@ -43,5 +44,6 @@ private:
 
 	void split_block(int order, page &block_start);
 	void merge_buddies(int order, page &buddy);
+	page** find_page_slot(int order, page &target_page);
 };
 } // namespace stacsos::kernel::mem

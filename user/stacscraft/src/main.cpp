@@ -23,6 +23,9 @@
 
 // #include "main.h"
 using namespace stacsos;
+const int chunk_size = 16;
+
+
 
 struct vec2i {
 	int x, y;
@@ -30,29 +33,45 @@ struct vec2i {
 	vec2i operator-(const vec2i &a) const { return vec2i(x - a.x, y - a.y); }
 	vec2i operator*(const double &a) const { return vec2i(a * x, a * y); }
 };
+enum Material { DIRT, WOOD, LEAVES };
 
 class triangle {
 public:
 	triangle() {};
-	triangle(Vec3 x, Vec3 y, Vec3 z)
+	triangle(Vec3 x, Vec3 y, Vec3 z, Material m)
 	{
 		points[0] = x;
 		points[1] = y;
 		points[2] = z;
+		material_index = m;
 	};
 
 	Vec3 points[3];
+	Material material_index;
 };
-enum Material { DIRT, WOOD, LEAVES };
-
+class chunk{
+	public: 
+	char blocks[chunk_size*chunk_size*chunk_size];
+	int chunk_x;
+	int chunk_y;
+	int chunk_z;
+	triangle* tri_list;
+	void regen_tri_list(){
+		for (int x = 0; x<chunk_size; x++){
+		for (int y = 0; y<chunk_size; y++){
+		for (int z = 0; z<chunk_size; z++){
+			
+		}}}
+	};
+};
 struct object3d {
 public:
 	triangle tris[12];
 	int tri_count = 0;
-	Material mat = DIRT;
+
 	Transform trans;
 	object3d() {};
-	void add_tri(triangle t) { tris[tri_count++] = t; }
+	// void add_tri(triangle t) { tris[tri_count++] = t; }
 };
 
 struct colour {
@@ -136,15 +155,7 @@ static void draw_triangle(Vec3 p0, Vec3 p1, Vec3 p2, Vec3 norm, colour c)
 	if (p1i.y > p2i.y)
 		swap(p1i, p2i);
 	int total_height = p2i.y - p0i.y;
-	// console::get().writef("%d\n",total_height);
-	//total height is all of tri, so skip parts where less than 0 or greater than HEIGHT
-	// p0i.y +i <0 0 skip
-	//p0i.y + i > HEIGHT SKIP
-	//if p0.y is negative, i start at -p0i.y
-	//if 
-	// consider p0i.y =-600, and total hiehgt =900
-	//height start = 600
-	//height emd = 600
+
 	if (total_height <0) return;
 	// if t0.y + total_height > HEIGHT, then max_height = HEIGHT - t0.y
 	int height_start = p0i.y<0 ? -p0i.y : 0;
@@ -201,12 +212,17 @@ static void render(int frame, Matrix<4, 4> cam_matrix, d64 delta)
 	}
 
 	Matrix<4, 4> proj_mat = proj_matrix(10.0, 1.0, 90.0);
-	for (auto &o : objects) {
+	console::get().writef("about to object loop\n");
 
+	for (int o_i=0; o_i<74; o_i++) {
+		console::get().writef("in obj loop %ld\n", o_i);
+		object3d o =objects[o_i];
+		console::get().writef("in obj loop %ld\n", o_i);
 		int t_count = 0;
 		Matrix<4,4> tr = ( (o).trans * cam_matrix * proj_mat);
 		
 		for (auto &t : (o).tris) {
+
 			t_count++;
 			Vec3 sideA = t.points[0] - t.points[1];
 			Vec3 sideB = t.points[0] - t.points[2];
@@ -234,7 +250,7 @@ static void render(int frame, Matrix<4, 4> cam_matrix, d64 delta)
 			}
 
 			colour tri_col;
-			switch (o.mat) {
+			switch (t.material_index) {
 			case DIRT:
 				tri_col = colour(u8(32), u8(61), u8(40));
 				break;
@@ -247,6 +263,7 @@ static void render(int frame, Matrix<4, 4> cam_matrix, d64 delta)
 			default:
 				break;
 			}
+
 			// colour tri_col = colour(u8(t.points[2].x() * 256 + t_count * 10), u8(t.points[2].z() * 256), (frame % 25600) / 100);
 			if (RENDER_MODE != WIREFRAME) {
 				draw_triangle(p1, p2, p3, norm, tri_col);
@@ -258,6 +275,8 @@ static void render(int frame, Matrix<4, 4> cam_matrix, d64 delta)
 			}
 		}
 	}
+		console::get().writef("about to send\n");
+
 	send();
 }
 
@@ -287,30 +306,30 @@ Matrix<4, 4> gen_view_mat(Vec3 pos, d64 pitch, d64 yaw)
 void setup_cube(object3d *o, Vec3 pos, Material m)
 {
 	//top
-	o->tris[0] = (triangle({ Vec3(0.0, 1.0, 0.0), Vec3(1.0, 1.0, 0.0), Vec3(1.0, 1.0, 1.0) }));
+	o->tris[0] = (triangle( Vec3(0.0, 1.0, 0.0), Vec3(1.0, 1.0, 0.0), Vec3(1.0, 1.0, 1.0) ,m));
 
-	o->tris[1] = (triangle({ Vec3(0.0, 1.0, 0.0), Vec3(1.0, 1.0, 1.0), Vec3(0.0, 1.0, 1.0) }));
+	o->tris[1] = (triangle( Vec3(0.0, 1.0, 0.0), Vec3(1.0, 1.0, 1.0), Vec3(0.0, 1.0, 1.0) ,m));
 	// bottom face
-	o->tris[2] = (triangle({ Vec3(0.0, 0.0, 0.0), Vec3(1.0, 0.0, 1.0), Vec3(1.0, 0.0, 0.0) }));
-	o->tris[3] = (triangle({ Vec3(0.0, 0.0, 0.0), Vec3(0.0, 0.0, 1.0), Vec3(1.0, 0.0, 1.0) }));
+	o->tris[2] = (triangle( Vec3(0.0, 0.0, 0.0), Vec3(1.0, 0.0, 1.0), Vec3(1.0, 0.0, 0.0) ,m));
+	o->tris[3] = (triangle( Vec3(0.0, 0.0, 0.0), Vec3(0.0, 0.0, 1.0), Vec3(1.0, 0.0, 1.0) ,m));
 
 	// front face
-	o->tris[4] = (triangle({ Vec3(0.0, 0.0, 0.0), Vec3(1.0, 1.0, 0.0), Vec3(1.0, 0.0, 0.0) }));
-	o->tris[5] = (triangle({ Vec3(0.0, 0.0, 0.0), Vec3(0.0, 1.0, 0.0), Vec3(1.0, 1.0, 0.0) }));
+	o->tris[4] = (triangle( Vec3(0.0, 0.0, 0.0), Vec3(1.0, 1.0, 0.0), Vec3(1.0, 0.0, 0.0) ,m));
+	o->tris[5] = (triangle( Vec3(0.0, 0.0, 0.0), Vec3(0.0, 1.0, 0.0), Vec3(1.0, 1.0, 0.0) ,m));
 	// back face
-	o->tris[6] = (triangle({ Vec3(0.0, 0.0, 1.0), Vec3(1.0, 1.0, 1.0), Vec3(1.0, 0.0, 1.0) }));
-	o->tris[7] = (triangle({ Vec3(0.0, 0.0, 1.0), Vec3(0.0, 1.0, 1.0), Vec3(1.0, 1.0, 1.0) }));
+	o->tris[6] = (triangle( Vec3(0.0, 0.0, 1.0), Vec3(1.0, 1.0, 1.0), Vec3(1.0, 0.0, 1.0) ,m));
+	o->tris[7] = (triangle( Vec3(0.0, 0.0, 1.0), Vec3(0.0, 1.0, 1.0), Vec3(1.0, 1.0, 1.0) ,m));
 
 	// left face
-	o->tris[8] = (triangle({ Vec3(0.0, 0.0, 0.0), Vec3(0.0, 1.0, 1.0), Vec3(0.0, 0.0, 1.0) }));
+	o->tris[8] = (triangle( Vec3(0.0, 0.0, 0.0), Vec3(0.0, 1.0, 1.0), Vec3(0.0, 0.0, 1.0) ,m));
 
-	o->tris[9] = (triangle({ Vec3(0.0, 0.0, 0.0), Vec3(0.0, 1.0, 0.0), Vec3(0.0, 1.0, 1.0) }));
+	o->tris[9] = (triangle( Vec3(0.0, 0.0, 0.0), Vec3(0.0, 1.0, 0.0), Vec3(0.0, 1.0, 1.0) ,m));
 
 	// right face
-	o->tris[10] = (triangle({ Vec3(1.0, 0.0, 0.0), Vec3(1.0, 0.0, 1.0), Vec3(1.0, 1.0, 1.0) }));
-	o->tris[11] = (triangle({ Vec3(1.0, 0.0, 0.0), Vec3(1.0, 1.0, 1.0), Vec3(1.0, 1.0, 0.0) }));
+	o->tris[10] = (triangle( Vec3(1.0, 0.0, 0.0), Vec3(1.0, 0.0, 1.0), Vec3(1.0, 1.0, 1.0) ,m));
+	o->tris[11] = (triangle( Vec3(1.0, 0.0, 0.0), Vec3(1.0, 1.0, 1.0), Vec3(1.0, 1.0, 0.0) ,m));
 	o->trans = stacsos::translation_mat(pos);
-	o->mat = m;
+	// o->mat = m;
 }
 int main(const char *cmdline)
 {
@@ -365,27 +384,30 @@ int main(const char *cmdline)
 	int frame = 0;
 	thread *input_thr;
 	char input_buffer[256];
-	input_thr = thread::start(input_thread, (void *)(input_buffer));
-	d64 speed = 100.0;
+	// input_thr = thread::start(input_thread, (void *)(input_buffer));
+	d64 speed = 5.0;
 	d64 delta = 0.01;
 	d64 pitch = 0.01;
 	d64 yaw = 0.0;
 	Vec3 camera_pos = Vec3(0, 0, 0);
 	u16 second;
 	u32 frames_per_second = 100.0;
-	console::get().writef("got here\n");
-
+	console::get().writef("got here aftyer start render\n");
+	RENDER_MODE = WIREFRAME;
 	while (true) {
 		t->pread(t_buf, 12, 0);
 		if (t_buf[0] != second) {
 			delta = (1.0 / frames_per_second);
 			console::get().writef("2%dfps, %d mspf\n", frames_per_second, (s64)((delta) * 1000));
-
+			
 			second = t_buf[0];
 			frames_per_second = 0;
 		}
 		Matrix<4, 4> cam_mat = gen_view_mat(camera_pos, 0.0, pitch);
+		
+		console::get().writef("about to staqrt render\n");
 		render(frame, cam_mat, delta);
+		console::get().writef("after  render\n");
 		frame++;
 		frames_per_second++;
 
