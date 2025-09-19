@@ -25,8 +25,6 @@
 using namespace stacsos;
 const int chunk_size = 16;
 
-
-
 struct vec2i {
 	int x, y;
 	vec2i operator+(const vec2i &a) const { return vec2i(a.x + x, a.y + y); }
@@ -37,7 +35,7 @@ enum Material { DIRT, WOOD, LEAVES };
 
 class triangle {
 public:
-	triangle() {};
+	triangle() { };
 	triangle(Vec3 x, Vec3 y, Vec3 z, Material m)
 	{
 		points[0] = x;
@@ -49,19 +47,20 @@ public:
 	Vec3 points[3];
 	Material material_index;
 };
-class chunk{
-	public: 
-	char blocks[chunk_size*chunk_size*chunk_size];
+class chunk {
+public:
+	char blocks[chunk_size * chunk_size * chunk_size];
 	int chunk_x;
 	int chunk_y;
 	int chunk_z;
-	triangle* tri_list;
-	void regen_tri_list(){
-		for (int x = 0; x<chunk_size; x++){
-		for (int y = 0; y<chunk_size; y++){
-		for (int z = 0; z<chunk_size; z++){
-			
-		}}}
+	triangle *tri_list;
+	void regen_tri_list()
+	{
+		for (int x = 0; x < chunk_size; x++) {
+			for (int y = 0; y < chunk_size; y++) {
+				for (int z = 0; z < chunk_size; z++) { }
+			}
+		}
 	};
 };
 struct object3d {
@@ -70,7 +69,7 @@ public:
 	int tri_count = 0;
 
 	Transform trans;
-	object3d() {};
+	object3d() { };
 	// void add_tri(triangle t) { tris[tri_count++] = t; }
 };
 
@@ -102,6 +101,8 @@ object3d objects[100];
 object *fb;
 atomic_u64 input_lock = 0;
 Vec3 light_dir;
+Vec3 cam_forward = Vec3(1.0, 0.0, 0.0).normalise();
+
 static void send()
 {
 	// u32 u = (r<< 16) |(g << 8) | b;
@@ -130,54 +131,81 @@ static void line(vec2i start, vec2i end, colour c)
 
 // Draw triangle, in screen pixel space
 // assumes counterclockwise winding
+int tri_i = 0;
 static void draw_triangle(Vec3 p0, Vec3 p1, Vec3 p2, Vec3 norm, colour c)
 {
-
+	tri_i = (tri_i + 4) % 20;
 	d64 depth = (p0.z() + p1.z() + p2.z()) / d64(3.0);
 	d64 light_str = norm.dot(light_dir);
-	light_str = light_str.d/4.0+0.75;
-		c = colour((u8)(light_str.d * c.r),(u8)(light_str.d * c.g),(u8)(light_str.d * c.b));
+	light_str = light_str.d / 4.0 + 0.75;
+	c = colour((u8)(light_str.d * c.r), (u8)(light_str.d * c.g), (u8)(light_str.d * c.b));
 
-	if (RENDER_MODE == DEPTH) {
-		u8 d_col = (u8)((depth.d * 256.0));
-		c = colour(d_col, d_col, d_col);
-	}
+	// if (RENDER_MODE == DEPTH) {
+	// 	u8 d_col = (u8)((depth.d * 256.0));
+	// 	c = colour(d_col, d_col, d_col);
+	// }
 	vec2i p0i = screen_uv_to_pixel(p0);
 	vec2i p1i = screen_uv_to_pixel(p1);
 	vec2i p2i = screen_uv_to_pixel(p2);
 	if (p0i.y == p1i.y && p0i.y == p2i.y)
 		return;
 	// Sort the vertices, t0 lower
-	if (p0i.y > p1i.y)
+	if (p0i.y > p1i.y) {
 		swap(p1i, p0i);
-	if (p0i.y > p2i.y)
+		swap(p1, p0);
+	}
+	if (p0i.y > p2i.y) {
 		swap(p0i, p2i);
-	if (p1i.y > p2i.y)
+		swap(p0, p2);
+	}
+
+	if (p1i.y > p2i.y) {
 		swap(p1i, p2i);
+		swap(p1, p2);
+	}
+
 	int total_height = p2i.y - p0i.y;
 
-	if (total_height <0) return;
+	if (total_height < 0)
+		return;
 	// if t0.y + total_height > HEIGHT, then max_height = HEIGHT - t0.y
-	int height_start = p0i.y<0 ? -p0i.y : 0;
-	int height_end = p0i.y+ total_height > HEIGHT ? HEIGHT - p0i.y : total_height;
-	for (int i =height_start; i < height_end; i++) {
+	int height_start = p0i.y < 0 ? -p0i.y : 0;
+	int height_end = p0i.y + total_height > HEIGHT ? HEIGHT - p0i.y : total_height;
+	for (int i = height_start; i < height_end; i++) {
 		int line_y = p0i.y + i;
 		bool second_half = i > p1i.y - p0i.y || p1i.y == p0i.y;
 		int segment_height = second_half ? p2i.y - p1i.y : p1i.y - p0i.y;
-		double alpha = (double)i / total_height;
-		double beta = (double)(i - (second_half ? p1i.y - p0i.y : 0)) / segment_height;
-		vec2i A = p0i + (p2i - p0i) * alpha; //how far up thorugh the triangle we are, on the long side
-		vec2i B = second_half ? p1i + (p2i - p1i) * beta : p0i + (p1i - p0i) * beta; //how far up thorugh the triangle we are, on the short side
+		double alpha = (double)i / (double)total_height;
+		double beta = (double)(i - (second_half ? p1i.y - p0i.y : 0)) / (double)segment_height;
+		vec2i A = p0i + (p2i - p0i) * alpha; // how far up thorugh the triangle we are, on the long side
+		vec2i B = second_half ? p1i + (p2i - p1i) * beta : p0i + (p1i - p0i) * beta; // how far up thorugh the triangle we are, on the short side
 		// if (p0i.y +i < 0 | p0i.y +i >= HEIGHT) continue;
-		if (A.x > B.x)
+		float ad = p0.z().d + (p2.z().d - p0.z().d) * alpha;
+		float bd = second_half ? p1.z().d + (p2.z().d - p1.z().d) * beta
+							   : p0.z().d + (p1.z().d - p0.z().d) * beta; // how far up thorugh the triangle we are, on the short side
+
+		if (A.x > B.x) {
 			swap(A, B);
-		for (int j = max(A.x,0); j <= min(B.x,WIDTH); j++) {
-			if (float(depth_buffer[p0i.y + i][j]) < float(depth.d)) {
-				depth_buffer[line_y][j] = float(depth.d);
+			// if (ad >bd)
+			swap(ad, bd);
+		}
+		for (int j = max(A.x, 0); j <= min(B.x, WIDTH); j++) {
+			float prog = ((float)(j-max(A.x, 0))) / (float)(min(B.x, WIDTH)-max(A.x, 0) );
+			float p_depth = ad * (1.0 - (prog)) + bd * prog;
+			// float p_depth = ad ;
+			if (float(depth_buffer[line_y][j]) < p_depth) {
+				// if (float(depth_buffer[p0i.y + i][j]) < float(depth.d)) {
+				depth_buffer[line_y][j] = p_depth;
+				if (RENDER_MODE == DEPTH) {
+					u8 d_col = (u8)((p_depth * 256.0));
+					c = colour(d_col, d_col, d_col);
+				}
+
 				if (RENDER_MODE == NORMAL) {
 					set_pixel(j, line_y,
-						colour(u8(norm.x() * 128 + 256), u8(norm.y() * 128 + 256), u8(norm.z() * 128 + 256))); // attention, due to int casts t0.y+i != A.y
-				} else if (RENDER_MODE == SHADING) { 
+						colour(u8(norm.x() * 128 + 256 + tri_i), u8(norm.y() * 128 + 256 + tri_i),
+							u8(norm.z() * 128 + 256 + tri_i))); // attention, due to int casts t0.y+i != A.y
+				} else if (RENDER_MODE == SHADING) {
 					set_pixel(j, line_y, colour(u8(light_str * 256), u8(light_str * 256), u8(light_str * 256)));
 				} else {
 					set_pixel(j, line_y, c); // attention, due to int casts t0.y+i != A.y
@@ -186,7 +214,6 @@ static void draw_triangle(Vec3 p0, Vec3 p1, Vec3 p2, Vec3 norm, colour c)
 		}
 	}
 }
-
 
 static Matrix<4, 4> proj_matrix(d64 far, d64 near, d64 fov)
 {
@@ -212,43 +239,62 @@ static void render(int frame, Matrix<4, 4> cam_matrix, d64 delta)
 	}
 
 	Matrix<4, 4> proj_mat = proj_matrix(10.0, 1.0, 90.0);
-	console::get().writef("about to object loop\n");
-
-	for (int o_i=0; o_i<74; o_i++) {
-		console::get().writef("in obj loop %ld\n", o_i);
-		object3d o =objects[o_i];
-		console::get().writef("in obj loop %ld\n", o_i);
+	// console::get().writef("about to object loop\n");
+	int backface_skippep = 0;
+	// for (int o_i=0; o_i<74; o_i++) {
+	for (auto &o : objects) {
+		// console::get().writef("in obj loop %ld\n", o_i);
+		// object3d o =objects[o_i];
+		// console::get().writef("in obj loop %ld\n", o_i);
 		int t_count = 0;
-		Matrix<4,4> tr = ( (o).trans * cam_matrix * proj_mat);
-		
+		Matrix<4, 4> tr = ((o).trans * cam_matrix * proj_mat);
+
 		for (auto &t : (o).tris) {
 
 			t_count++;
 			Vec3 sideA = t.points[0] - t.points[1];
 			Vec3 sideB = t.points[0] - t.points[2];
-			Vec3 norm = sideA.cross(sideB).normalise();
-			
-			Vec4 p1_ = (Vec4(t.points[0], 1.0)) *tr;
-			Vec4 p2_ = (Vec4(t.points[1], 1.0)) *tr;
-			Vec4 p3_ = (Vec4(t.points[2], 1.0)) *tr;
+			Vec3 norm = sideB.cross(sideA).normalise();
+			// Vec3 normp_ = norm;
+
+			Vec3 centroid = t.points[0] * 0.33 + t.points[1] * 0.33 + t.points[2] * 0.33;
+			Vec4 p1_ = (Vec4(t.points[0], 1.0)) * tr;
+			Vec4 p2_ = (Vec4(t.points[1], 1.0)) * tr;
+			Vec4 p3_ = (Vec4(t.points[2], 1.0)) * tr;
+
+			Vec4 normal_trans_ = (Vec4(centroid + norm, 1.0)) * tr;
+			Vec3 normal_trans = normal_trans_.toVec3();
+			Vec4 centroid_trans_ = (Vec4(centroid, 1.0)) * tr;
+			Vec3 centroid_trans = centroid_trans_.toVec3();
 
 			Vec3 p1 = p1_.toVec3();
 			Vec3 p2 = p2_.toVec3();
 			Vec3 p3 = p3_.toVec3();
-			int num_outside=0;
-			if ((p1.z()).d < 0.0) {
-				num_outside ++;
-				continue;
-			}
-			if ((p2.z()).d < 0.0) {
+			int num_outside = 0;
+			if ((p1.z()).d < 1.0) {
 				num_outside++;
 				continue;
 			}
-			if ((p3.z()).d < 0.0) {
+			if ((p2.z()).d < 1.0) {
 				num_outside++;
 				continue;
 			}
+			if ((p3.z()).d < 1.0) {
+				num_outside++;
+				continue;
+			}
+			if (num_outside == 3) {
+				continue;
+			}
+			Vec3 normp = ((Vec3)(p1 - p2)).cross((Vec3)(p1 - p3)).normalise();
 
+			// skip backwards trianges
+			// console::get().writef("skipped n backfaces: %ld\n", (norm.dot(cam_forward).d *100));
+
+			if ((normp.dot(Vec3(0, 0, -1)).d) > 0.0) {
+				backface_skippep++;
+				continue;
+			}
 			colour tri_col;
 			switch (t.material_index) {
 			case DIRT:
@@ -273,16 +319,21 @@ static void render(int frame, Matrix<4, 4> cam_matrix, d64 delta)
 				line(screen_uv_to_pixel(p2), screen_uv_to_pixel(p3), tri_col);
 				line(screen_uv_to_pixel(p3), screen_uv_to_pixel(p1), tri_col);
 			}
+
+			if (RENDER_MODE == NORMAL || RENDER_MODE == WIREFRAME) {
+				line(screen_uv_to_pixel(centroid_trans), screen_uv_to_pixel(normal_trans), tri_col);
+			}
 		}
 	}
-		console::get().writef("about to send\n");
+	// console::get().writef("about to send\n");
+	// console::get().writef("skipped n backfaces: %ld\n", backface_skippep);
 
 	send();
 }
 
 static void *input_thread(void *input_queue)
 {
-	console::get().write("thisis from input thread");
+	// console::get().write("thisis from input thread");
 	char *q = (char *)input_queue;
 	while (true) {
 		char c = console::get().read_char();
@@ -305,35 +356,36 @@ Matrix<4, 4> gen_view_mat(Vec3 pos, d64 pitch, d64 yaw)
 
 void setup_cube(object3d *o, Vec3 pos, Material m)
 {
-	//top
-	o->tris[0] = (triangle( Vec3(0.0, 1.0, 0.0), Vec3(1.0, 1.0, 0.0), Vec3(1.0, 1.0, 1.0) ,m));
+	// top
+	o->tris[0] = (triangle(Vec3(0.0, 1.0, 0.0), Vec3(1.0, 1.0, 0.0), Vec3(1.0, 1.0, 1.0), m));
 
-	o->tris[1] = (triangle( Vec3(0.0, 1.0, 0.0), Vec3(1.0, 1.0, 1.0), Vec3(0.0, 1.0, 1.0) ,m));
+	o->tris[1] = (triangle(Vec3(0.0, 1.0, 0.0), Vec3(1.0, 1.0, 1.0), Vec3(0.0, 1.0, 1.0), m));
 	// bottom face
-	o->tris[2] = (triangle( Vec3(0.0, 0.0, 0.0), Vec3(1.0, 0.0, 1.0), Vec3(1.0, 0.0, 0.0) ,m));
-	o->tris[3] = (triangle( Vec3(0.0, 0.0, 0.0), Vec3(0.0, 0.0, 1.0), Vec3(1.0, 0.0, 1.0) ,m));
+	o->tris[2] = (triangle(Vec3(0.0, 0.0, 0.0), Vec3(1.0, 0.0, 1.0), Vec3(1.0, 0.0, 0.0), m));
+	o->tris[3] = (triangle(Vec3(0.0, 0.0, 0.0), Vec3(0.0, 0.0, 1.0), Vec3(1.0, 0.0, 1.0), m));
 
 	// front face
-	o->tris[4] = (triangle( Vec3(0.0, 0.0, 0.0), Vec3(1.0, 1.0, 0.0), Vec3(1.0, 0.0, 0.0) ,m));
-	o->tris[5] = (triangle( Vec3(0.0, 0.0, 0.0), Vec3(0.0, 1.0, 0.0), Vec3(1.0, 1.0, 0.0) ,m));
+	o->tris[4] = (triangle(Vec3(0.0, 0.0, 0.0), Vec3(1.0, 0.0, 0.0), Vec3(1.0, 1.0, 0.0), m));
+	o->tris[5] = (triangle(Vec3(0.0, 0.0, 0.0), Vec3(1.0, 1.0, 0.0), Vec3(0.0, 1.0, 0.0), m));
 	// back face
-	o->tris[6] = (triangle( Vec3(0.0, 0.0, 1.0), Vec3(1.0, 1.0, 1.0), Vec3(1.0, 0.0, 1.0) ,m));
-	o->tris[7] = (triangle( Vec3(0.0, 0.0, 1.0), Vec3(0.0, 1.0, 1.0), Vec3(1.0, 1.0, 1.0) ,m));
+	o->tris[6] = (triangle(Vec3(0.0, 0.0, 1.0), Vec3(1.0, 1.0, 1.0), Vec3(1.0, 0.0, 1.0), m));
+	o->tris[7] = (triangle(Vec3(0.0, 0.0, 1.0), Vec3(0.0, 1.0, 1.0), Vec3(1.0, 1.0, 1.0), m));
 
 	// left face
-	o->tris[8] = (triangle( Vec3(0.0, 0.0, 0.0), Vec3(0.0, 1.0, 1.0), Vec3(0.0, 0.0, 1.0) ,m));
+	o->tris[8] = (triangle(Vec3(0.0, 0.0, 0.0), Vec3(0.0, 1.0, 1.0), Vec3(0.0, 0.0, 1.0), m));
 
-	o->tris[9] = (triangle( Vec3(0.0, 0.0, 0.0), Vec3(0.0, 1.0, 0.0), Vec3(0.0, 1.0, 1.0) ,m));
+	o->tris[9] = (triangle(Vec3(0.0, 0.0, 0.0), Vec3(0.0, 1.0, 0.0), Vec3(0.0, 1.0, 1.0), m));
 
 	// right face
-	o->tris[10] = (triangle( Vec3(1.0, 0.0, 0.0), Vec3(1.0, 0.0, 1.0), Vec3(1.0, 1.0, 1.0) ,m));
-	o->tris[11] = (triangle( Vec3(1.0, 0.0, 0.0), Vec3(1.0, 1.0, 1.0), Vec3(1.0, 1.0, 0.0) ,m));
+	o->tris[10] = (triangle(Vec3(1.0, 0.0, 0.0), Vec3(1.0, 0.0, 1.0), Vec3(1.0, 1.0, 1.0), m));
+	o->tris[11] = (triangle(Vec3(1.0, 0.0, 0.0), Vec3(1.0, 1.0, 1.0), Vec3(1.0, 1.0, 0.0), m));
 	o->trans = stacsos::translation_mat(pos);
 	// o->mat = m;
 }
+
 int main(const char *cmdline)
 {
-	light_dir =Vec3(DOWN*3+LEFT*2+FORWARD).normalise();
+	light_dir = Vec3(DOWN * 3 + LEFT * 2 + FORWARD).normalise();
 	RENDER_MODE = RENDER;
 	fb = object::open("/dev/virtcon0");
 	// t = object::open("/dev/c");
@@ -355,6 +407,7 @@ int main(const char *cmdline)
 	console::get().writef("got here\n");
 	console::get().writef("got here\n");
 	// object3d c3[64] ;
+	// setup_cube(&objects[0], Vec3(1, 1, 1), WOOD);
 
 	for (int x = 0; x < 8; x++) {
 		for (int z = 0; z < 8; z++) {
@@ -374,7 +427,7 @@ int main(const char *cmdline)
 	setup_cube(&objects[72], Vec3(4, 3, 5), LEAVES);
 	setup_cube(&objects[73], Vec3(4, 3, 3), LEAVES);
 	setup_cube(&objects[74], Vec3(4, 4, 4), LEAVES);
-	 int object_counter = 75;
+	int object_counter = 75;
 	// object3d c1 = setup_cube(stacsos::translation_mat(Vec3(0, 0, 5.0)));
 	// object3d c2 = setup_cube(stacsos::translation_mat(Vec3(2, 0, 5.0)));
 	console::get().writef("got her2e\n");
@@ -384,8 +437,8 @@ int main(const char *cmdline)
 	int frame = 0;
 	thread *input_thr;
 	char input_buffer[256];
-	// input_thr = thread::start(input_thread, (void *)(input_buffer));
-	d64 speed = 5.0;
+	input_thr = thread::start(input_thread, (void *)(input_buffer));
+	d64 speed = 50.0;
 	d64 delta = 0.01;
 	d64 pitch = 0.01;
 	d64 yaw = 0.0;
@@ -393,21 +446,21 @@ int main(const char *cmdline)
 	u16 second;
 	u32 frames_per_second = 100.0;
 	console::get().writef("got here aftyer start render\n");
-	RENDER_MODE = WIREFRAME;
+	// RENDER_MODE = WIREFRAME;
 	while (true) {
 		t->pread(t_buf, 12, 0);
 		if (t_buf[0] != second) {
 			delta = (1.0 / frames_per_second);
 			console::get().writef("2%dfps, %d mspf\n", frames_per_second, (s64)((delta) * 1000));
-			
+
 			second = t_buf[0];
 			frames_per_second = 0;
 		}
 		Matrix<4, 4> cam_mat = gen_view_mat(camera_pos, 0.0, pitch);
-		
-		console::get().writef("about to staqrt render\n");
+
+		// console::get().writef("about to staqrt render\n");
 		render(frame, cam_mat, delta);
-		console::get().writef("after  render\n");
+		// console::get().writef("after  render\n");
 		frame++;
 		frames_per_second++;
 
@@ -445,7 +498,7 @@ int main(const char *cmdline)
 			}
 			Vec4 cam_forward_ = Vec4(BACK, 0.0) * stacsos::rotate_y_mat(-pitch.d);
 			// cam_forward_.print();
-			Vec3 cam_forward = Vec3(cam_forward_.x(), cam_forward_.y(), cam_forward_.z()).normalise();
+			cam_forward = Vec3(cam_forward_.x(), cam_forward_.y(), cam_forward_.z()).normalise();
 			// cam_forward.print();
 
 			Vec3 cam_right = cam_forward.cross(UP).normalise();
@@ -476,12 +529,9 @@ int main(const char *cmdline)
 				pitch = pitch - (speed * delta * d64(0.3));
 			};
 			if (c == 'f') {
-				
+
 				setup_cube(&objects[object_counter++], camera_pos, LEAVES);
-
 			};
-			
-
 		}
 	}
 	// wait for input so the prompt doesn't ruin the lovely image
