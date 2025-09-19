@@ -31,7 +31,7 @@ struct vec2i {
 	vec2i operator-(const vec2i &a) const { return vec2i(x - a.x, y - a.y); }
 	vec2i operator*(const double &a) const { return vec2i(a * x, a * y); }
 };
-enum Material { DIRT, WOOD, LEAVES };
+enum Material { AIR, DIRT, WOOD, LEAVES };
 
 class triangle {
 public:
@@ -49,19 +49,47 @@ public:
 };
 class chunk {
 public:
-	char blocks[chunk_size * chunk_size * chunk_size];
+	Material blocks[chunk_size * chunk_size * chunk_size];
 	int chunk_x;
 	int chunk_y;
 	int chunk_z;
 	triangle *tri_list;
 	void regen_tri_list()
 	{
-		for (int x = 0; x < chunk_size; x++) {
-			for (int y = 0; y < chunk_size; y++) {
-				for (int z = 0; z < chunk_size; z++) { }
+		int tri_count = 0;
+		for (int y = 0; y < chunk_size; y++) {
+			for (int z = 0; z < chunk_size; z++) {
+				for (int x = 0; x < chunk_size; x++) {
+					// check all six sides
+
+					if (get_block(x, y, z) == AIR)
+						continue;
+					if (x > 0 && get_block(x - 1, y, z) == AIR)
+						tri_count = +2;
+					if (x < chunk_size && get_block(x + 1, y, z) == AIR)
+						tri_count = +2;
+					if (y > 0 && get_block(x, y - 1, z) == AIR)
+						tri_count = +2;
+					if (y < chunk_size && get_block(x, y + 1, z) == AIR)
+						tri_count = +2;
+					if (z > 0 && get_block(x, y, z - 1) == AIR)
+						tri_count = +2;
+					if (z < chunk_size && get_block(x, y, z + 1) == AIR)
+						tri_count = +2;
+				}
 			}
 		}
+		console::get().writef("tricount = %ld\n", int(tri_count));
 	};
+
+	Material get_block(char x, char y, char z) { return blocks[y * (chunk_size * chunk_size) + z * (chunk_size) + x]; }
+
+	void set_block(char x, char y, char z, Material m) { blocks[y * (chunk_size * chunk_size) + z * (chunk_size) + x] = m; }
+	chunk() {
+		blocks[chunk_size * chunk_size * chunk_size];
+
+	 };
+
 };
 struct object3d {
 public:
@@ -190,7 +218,7 @@ static void draw_triangle(Vec3 p0, Vec3 p1, Vec3 p2, Vec3 norm, colour c)
 			swap(ad, bd);
 		}
 		for (int j = max(A.x, 0); j <= min(B.x, WIDTH); j++) {
-			float prog = ((float)(j-max(A.x, 0))) / (float)(min(B.x, WIDTH)-max(A.x, 0) );
+			float prog = ((float)(j - max(A.x, 0))) / (float)(min(B.x, WIDTH) - max(A.x, 0));
 			float p_depth = ad * (1.0 - (prog)) + bd * prog;
 			// float p_depth = ad ;
 			if (float(depth_buffer[line_y][j]) < p_depth) {
@@ -385,6 +413,7 @@ void setup_cube(object3d *o, Vec3 pos, Material m)
 
 int main(const char *cmdline)
 {
+	console::get().writef("got here\n");
 	light_dir = Vec3(DOWN * 3 + LEFT * 2 + FORWARD).normalise();
 	RENDER_MODE = RENDER;
 	fb = object::open("/dev/virtcon0");
@@ -406,6 +435,8 @@ int main(const char *cmdline)
 	console::get().writef("sqrtoot 0.5 = %ld\n", int(stacsos::sqroot(0.5) * 10));
 	console::get().writef("got here\n");
 	console::get().writef("got here\n");
+
+	chunk new_chunk = chunk();
 	// object3d c3[64] ;
 	// setup_cube(&objects[0], Vec3(1, 1, 1), WOOD);
 
@@ -414,6 +445,7 @@ int main(const char *cmdline)
 
 			setup_cube(&objects[z + x * 8], Vec3(x, -1, z), DIRT);
 			objects[z + x * 8].trans = stacsos::translation_mat(Vec3(x, -1, z));
+			new_chunk.set_block(x, 0, z, DIRT);
 		}
 	}
 	setup_cube(&objects[65], Vec3(4, -1, 4), WOOD);
@@ -421,12 +453,23 @@ int main(const char *cmdline)
 	setup_cube(&objects[67], Vec3(4, 1, 4), WOOD);
 	setup_cube(&objects[68], Vec3(4, 2, 4), WOOD);
 	setup_cube(&objects[69], Vec3(4, 3, 4), WOOD);
+	new_chunk.set_block(4, 0, 4, WOOD);
+	new_chunk.set_block(4, 1, 4, WOOD);
+	new_chunk.set_block(4, 2, 4, WOOD);
+	new_chunk.set_block(4, 3, 4, WOOD);
+	new_chunk.set_block(4, 4, 4, WOOD);
 
 	setup_cube(&objects[70], Vec3(5, 3, 4), LEAVES);
 	setup_cube(&objects[71], Vec3(3, 3, 4), LEAVES);
-	setup_cube(&objects[72], Vec3(4, 3, 5), LEAVES);
+	setup_cube(&objects[72], Vec3(4, 3, 5), LEAVES); 
 	setup_cube(&objects[73], Vec3(4, 3, 3), LEAVES);
 	setup_cube(&objects[74], Vec3(4, 4, 4), LEAVES);
+	new_chunk.set_block(5, 3, 4, LEAVES);
+	new_chunk.set_block(3, 3, 4, LEAVES);
+	new_chunk.set_block(4, 3, 5, LEAVES);
+	new_chunk.set_block(4, 3, 3, LEAVES);
+	new_chunk.set_block(4, 4, 4, LEAVES);
+	new_chunk.regen_tri_list();
 	int object_counter = 75;
 	// object3d c1 = setup_cube(stacsos::translation_mat(Vec3(0, 0, 5.0)));
 	// object3d c2 = setup_cube(stacsos::translation_mat(Vec3(2, 0, 5.0)));
